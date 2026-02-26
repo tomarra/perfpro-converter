@@ -73,10 +73,108 @@ function reset() {
   uploadStatus.dataset.state = '';
 }
 
+// ─── ZIP extraction ───────────────────────────────────────────────────────────
+
+async function extractFromZip(arrayBuffer) {
+  const bytes = new Uint8Array(arrayBuffer);
+  const view = new DataView(arrayBuffer);
+
+  // Locate End of Central Directory (EOCD) by scanning backward for PK\x05\x06
+  const EOCD_SIG = 0x06054b50;
+  let eocdOffset = -1;
+  for (let i = bytes.length - 22; i >= 0; i--) {
+    if (view.getUint32(i, true) === EOCD_SIG) {
+      eocdOffset = i;
+      break;
+    }
+  }
+  if (eocdOffset === -1) throw new Error('Not a valid ZIP file.');
+
+  const entryCount  = view.getUint16(eocdOffset + 10, true);
+  const cdOffset    = view.getUint32(eocdOffset + 16, true);
+
+  // Parse Central Directory to find .3dp entries
+  const CD_SIG = 0x02014b50;
+  const matches = [];
+  let pos = cdOffset;
+
+  for (let i = 0; i < entryCount; i++) {
+    if (view.getUint32(pos, true) !== CD_SIG) break;
+    const compression      = view.getUint16(pos + 10, true);
+    const compressedSize   = view.getUint32(pos + 20, true);
+    const fileNameLen      = view.getUint16(pos + 28, true);
+    const extraLen         = view.getUint16(pos + 30, true);
+    const commentLen       = view.getUint16(pos + 32, true);
+    const localHeaderOffset = view.getUint32(pos + 42, true);
+    const fileName = new TextDecoder().decode(bytes.slice(pos + 46, pos + 46 + fileNameLen));
+
+    if (fileName.toLowerCase().endsWith('.3dp')) {
+      matches.push({ fileName, compression, compressedSize, localHeaderOffset });
+    }
+    pos += 46 + fileNameLen + extraLen + commentLen;
+  }
+
+  if (matches.length === 0) throw new Error('No .3dp file found inside the ZIP.');
+  if (matches.length > 1)   throw new Error('Multiple .3dp files found in ZIP; please include only one.');
+
+  // Extract file data using the local file header to find the data start
+  const { fileName, compression, compressedSize, localHeaderOffset } = matches[0];
+  const LFH_SIG = 0x04034b50;
+  if (view.getUint32(localHeaderOffset, true) !== LFH_SIG) throw new Error('Invalid local file header in ZIP.');
+
+  const localFileNameLen = view.getUint16(localHeaderOffset + 26, true);
+  const localExtraLen    = view.getUint16(localHeaderOffset + 28, true);
+  const dataStart        = localHeaderOffset + 30 + localFileNameLen + localExtraLen;
+  const compressedData   = bytes.slice(dataStart, dataStart + compressedSize);
+
+  if (compression === 0) {
+    // Stored — no decompression needed
+    return { fileName, data: compressedData };
+  }
+
+  if (compression === 8) {
+    // Deflated — decompress with native DecompressionStream
+    const ds = new DecompressionStream('deflate-raw');
+    const writer = ds.writable.getWriter();
+    const reader = ds.readable.getReader();
+    writer.write(compressedData);
+    writer.close();
+
+    const chunks = [];
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      chunks.push(value);
+    }
+    const totalLen = chunks.reduce((sum, c) => sum + c.length, 0);
+    const data = new Uint8Array(totalLen);
+    let offset = 0;
+    for (const chunk of chunks) { data.set(chunk, offset); offset += chunk.length; }
+    return { fileName, data };
+  }
+
+  throw new Error(`Unsupported ZIP compression method: ${compression}.`);
+}
+
 // ─── File handling ────────────────────────────────────────────────────────────
 
-function handleFile(file) {
+async function handleFile(file) {
   if (!file) return;
+
+  if (file.name.toLowerCase().endsWith('.zip')) {
+    dropZone.classList.add('drop-zone--active');
+    try {
+      const ab = await file.arrayBuffer();
+      const extracted = await extractFromZip(ab);
+      const inner = new File([extracted.data], extracted.fileName, { type: 'application/octet-stream' });
+      dropZone.classList.remove('drop-zone--active');
+      handleFile(inner);
+    } catch (err) {
+      dropZone.classList.remove('drop-zone--active');
+      showError(err.message);
+    }
+    return;
+  }
 
   if (!file.name.toLowerCase().endsWith('.3dp')) {
     showError(`"${file.name}" does not appear to be a .3dp file. Please select a PerfPro file.`);
