@@ -322,6 +322,50 @@ document.addEventListener('DOMContentLoaded', function checkOAuthCallback() {
   handleOAuthCallback(state, code, blob, pending.filename);
 });
 
+// Check for a file shared via the Web Share Target API.
+// The service worker intercepts the share POST, stores the file in the Cache
+// API under the key 'shared-file', and redirects here. We pick it up and feed
+// it into handleFile() so the conversion flow starts automatically.
+document.addEventListener('DOMContentLoaded', function checkSharedFile() {
+  if (!('caches' in window)) return;
+  caches.open('perfpro-v1').then(function(cache) {
+    return cache.match('shared-file').then(function(response) {
+      if (!response) return;
+      // Delete before processing so a page refresh does not re-trigger conversion
+      cache.delete('shared-file');
+      return response.arrayBuffer().then(function(buffer) {
+        const rawName = response.headers.get('X-File-Name') || 'shared.3dp';
+        const fileName = decodeURIComponent(rawName);
+        const mimeType = response.headers.get('Content-Type') || 'application/octet-stream';
+        handleFile(new File([buffer], fileName, { type: mimeType }));
+      });
+    });
+  }).catch(function(err) {
+    console.warn('[app] Could not read shared file:', err);
+  });
+});
+
+// Show a one-time install hint on iOS Safari (not in standalone mode).
+// Web Share Target only works once the PWA is added to the Home Screen.
+document.addEventListener('DOMContentLoaded', function showInstallHint() {
+  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+  const isStandalone = window.navigator.standalone === true;
+  if (!isIOS || isStandalone) return;
+  if (sessionStorage.getItem('installHintDismissed')) return;
+
+  const hint = document.createElement('p');
+  hint.className = 'install-hint';
+  hint.innerHTML =
+    'Tip: tap <strong>Share \u2197</strong> then <strong>Add to Home Screen</strong> ' +
+    'to share .3dp files directly from Mail or Files. ' +
+    '<button type="button" class="install-hint__dismiss">Got it</button>';
+  hint.querySelector('.install-hint__dismiss').addEventListener('click', function() {
+    sessionStorage.setItem('installHintDismissed', '1');
+    hint.remove();
+  });
+  document.getElementById('dropZone').appendChild(hint);
+});
+
 // ─── Drag and drop ───────────────────────────────────────────────────────────
 
 dropZone.addEventListener('dragover', e => {
