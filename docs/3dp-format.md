@@ -6,14 +6,14 @@ This document describes the binary layout of `.3dp` files produced by PerfPro / 
 
 ## File Layout
 
-| Offset | Size | Contents |
-|---|---|---|
-| `0x00–0x03` | 4 bytes | File version / magic (`5e 00 02 00` observed) |
-| `0x04–0x07` | 4 bytes | ASCII `perf` — format identifier |
-| `0x08–0x0F` | 8 bytes | Unknown header fields |
-| `0x10–0x4F` | 64 bytes | Athlete name, null-terminated UTF-8 |
+| Offset       | Size      | Contents                                                |
+| ------------ | --------- | ------------------------------------------------------- |
+| `0x00–0x03`  | 4 bytes   | File version / magic (`5e 00 02 00` observed)           |
+| `0x04–0x07`  | 4 bytes   | ASCII `perf` — format identifier                        |
+| `0x08–0x0F`  | 8 bytes   | Unknown header fields                                   |
+| `0x10–0x4F`  | 64 bytes  | Athlete name, null-terminated UTF-8                     |
 | `0x50–0x10F` | 192 bytes | Workout metadata (settings, totals — not fully decoded) |
-| `0x110–EOF` | variable | Data records (48 bytes each), then a plaintext footer |
+| `0x110–EOF`  | variable  | Data records (48 bytes each), then a plaintext footer   |
 
 ---
 
@@ -25,20 +25,20 @@ A record is a valid data record if bytes 1–3 equal `0x00 0x01 0x00`. Records t
 
 ### 48-byte Record Layout
 
-| Byte(s) | Field | Type | Notes |
-|---|---|---|---|
-| 0 | Segment marker | `uint8` | `0x83` = lap 1, `0x84` = lap 2, etc. — not fully decoded |
-| 1–3 | Record signature | 3 bytes | Always `0x00 0x01 0x00` for data records |
-| 4 | Power | `uint8` | Watts, range 0–255 |
-| 5–31 | Unknown | — | Reserved / not decoded |
-| **32–35** | **Timestamp** | `uint32 LE` | **Milliseconds from workout start** — authoritative timing source |
-| 36–37 | Unknown | — | |
-| 38 | Cadence | `uint8` | RPM; `90` = PerfPro default when no sensor connected |
-| 39 | Cadence (duplicate) | `uint8` | Same value as byte 38 |
-| **40–43** | **Cumulative distance** | `float32 LE` | **Kilometres travelled from workout start; 0.0 on the first record** |
-| 44–45 | Unknown | — | |
-| 46 | Heart rate | `uint8` | BPM; `50` = PerfPro default when no HR monitor connected |
-| 47 | Heart rate (duplicate) | `uint8` | Same value as byte 46 |
+| Byte(s)   | Field                   | Type         | Notes                                                                |
+| --------- | ----------------------- | ------------ | -------------------------------------------------------------------- |
+| 0         | Segment marker          | `uint8`      | `0x83` = lap 1, `0x84` = lap 2, etc. — not fully decoded             |
+| 1–3       | Record signature        | 3 bytes      | Always `0x00 0x01 0x00` for data records                             |
+| 4         | Power                   | `uint8`      | Watts, range 0–255                                                   |
+| 5–31      | Unknown                 | —            | Reserved / not decoded                                               |
+| **32–35** | **Timestamp**           | `uint32 LE`  | **Milliseconds from workout start** — authoritative timing source    |
+| 36–37     | Unknown                 | —            |                                                                      |
+| 38        | Cadence                 | `uint8`      | RPM; `90` = PerfPro default when no sensor connected                 |
+| 39        | Cadence (duplicate)     | `uint8`      | Same value as byte 38                                                |
+| **40–43** | **Cumulative distance** | `float32 LE` | **kilometers travelled from workout start; 0.0 on the first record** |
+| 44–45     | Unknown                 | —            |                                                                      |
+| 46        | Heart rate              | `uint8`      | BPM; `50` = PerfPro default when no HR monitor connected             |
+| 47        | Heart rate (duplicate)  | `uint8`      | Same value as byte 46                                                |
 
 ---
 
@@ -47,6 +47,7 @@ A record is a valid data record if bytes 1–3 equal `0x00 0x01 0x00`. Records t
 The timestamp at bytes 32–35 is a **little-endian unsigned 32-bit integer representing milliseconds from workout start**. This is the authoritative source for trackpoint timing.
 
 Observed characteristics:
+
 - First record is typically timestamped at ~423 ms (PerfPro starts logging slightly before t=0)
 - Typical inter-record interval: ~550–566 ms (~1.8 Hz)
 - The final record(s) in the file are corrupt sentinels whose timestamp jumps by ~1.1 billion ms; these are identified and skipped by checking that each record's delta from the previous is ≤ 5,000 ms
@@ -59,10 +60,10 @@ Observed characteristics:
 
 PerfPro writes fixed sentinel values to cadence and heart rate fields when no real sensor is connected:
 
-| Field | No-sensor default |
-|---|---|
-| Cadence | `90` rpm |
-| Heart rate | `50` bpm |
+| Field      | No-sensor default |
+| ---------- | ----------------- |
+| Cadence    | `90` rpm          |
+| Heart rate | `50` bpm          |
 
 The parser counts how many records contain a non-default, non-zero value for each field. If more than **5%** of records qualify, the sensor is considered real and the field is included in output. This threshold tolerates occasional glitch records without producing false positives.
 
@@ -70,9 +71,10 @@ The parser counts how many records contain a non-default, non-zero value for eac
 
 ## Distance
 
-Bytes 40–43 of each data record store the **cumulative distance in kilometres** as an IEEE 754 single-precision float (little-endian). The value monotonically increases from `0.0` at the first record to the total workout distance at the last.
+Bytes 40–43 of each data record store the **cumulative distance in kilometers** as an IEEE 754 single-precision float (little-endian). The value monotonically increases from `0.0` at the first record to the total workout distance at the last.
 
 Observed characteristics from a 57:20 indoor cycling workout:
+
 - First record (423 ms): `0.000000` km
 - Second record (977 ms): `0.007699` km → implied speed ≈ 30 km/h
 - Final record (57:20): `30.917` km → **19.21 miles** at **20.10 mph** average
@@ -93,20 +95,31 @@ After the data records, the file ends with a plaintext block that describes the 
 
 ```js
 const RECORD_START = 0x110;
-const RECORD_SIZE  = 48;
+const RECORD_SIZE = 48;
 
 function isDataRecord(bytes, offset) {
-  return bytes[offset + 1] === 0x00 &&
-         bytes[offset + 2] === 0x01 &&
-         bytes[offset + 3] === 0x00;
+  return (
+    bytes[offset + 1] === 0x00 &&
+    bytes[offset + 2] === 0x01 &&
+    bytes[offset + 3] === 0x00
+  );
 }
 
 function readUint32LE(bytes, offset) {
-  return (bytes[offset] | bytes[offset+1]<<8 | bytes[offset+2]<<16 | bytes[offset+3]<<24) >>> 0;
+  return (
+    (bytes[offset] |
+      (bytes[offset + 1] << 8) |
+      (bytes[offset + 2] << 16) |
+      (bytes[offset + 3] << 24)) >>>
+    0
+  );
 }
 
 function readFloat32LE(bytes, offset) {
-  return new DataView(bytes.buffer, bytes.byteOffset + offset, 4).getFloat32(0, true);
+  return new DataView(bytes.buffer, bytes.byteOffset + offset, 4).getFloat32(
+    0,
+    true
+  );
 }
 
 const bytes = new Uint8Array(arrayBuffer);
@@ -116,11 +129,11 @@ for (let i = 0; i < slots; i++) {
   const off = RECORD_START + i * RECORD_SIZE;
   if (!isDataRecord(bytes, off)) continue;
 
-  const ms          = readUint32LE(bytes,  off + 32); // timestamp (ms from start)
-  const watts       = bytes[off + 4];
-  const cadence     = bytes[off + 38];
-  const hr          = bytes[off + 46];
-  const distKm      = readFloat32LE(bytes, off + 40); // cumulative km
-  const distMeters  = distKm * 1000;
+  const ms = readUint32LE(bytes, off + 32); // timestamp (ms from start)
+  const watts = bytes[off + 4];
+  const cadence = bytes[off + 38];
+  const hr = bytes[off + 46];
+  const distKm = readFloat32LE(bytes, off + 40); // cumulative km
+  const distMeters = distKm * 1000;
 }
 ```
