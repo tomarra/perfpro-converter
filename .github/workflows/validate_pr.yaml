@@ -31,5 +31,5 @@ jobs:
       - name: Check Spelling
         uses: streetsidesoftware/cspell-action@v8
         with:
-          files: "**/*.{md,dart}"
+          files: "**/*.*"
           config: .github/cspell.json
