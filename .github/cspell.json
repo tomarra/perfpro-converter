@@ -1,0 +1,29 @@
+{
+  "version": "0.2",
+  "enabled": true,
+  "language": "en",
+  "dictionaries": [
+    "en_US",
+    "softwareTerms",
+    "dev_dictionary",
+    "workout_dictionary"
+  ],
+  "dictionaryDefinitions": [
+    {
+      "name": "dev_dictionary",
+      "path": "./.cspell/dev_dictionary.txt",
+      "addWords": true
+    },
+    {
+      "name": "workout_dictionary",
+      "path": "./.cspell/workout_dictionary.txt",
+      "addWords": true
+    }
+  ],
+  "ignorePaths": [
+    ".github/workflows/**",
+    ".gitignore",
+    "**.gen.dart",
+    "**.g.dart"
+  ]
+}
