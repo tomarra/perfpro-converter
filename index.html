@@ -59,8 +59,11 @@
 
           <div class="result-actions">
             <button class="btn btn--success btn--large" id="downloadBtn">Download TCX</button>
+            <button class="btn btn--strava btn--large" id="uploadStravaBtn" hidden>Upload to Strava</button>
+            <button class="btn btn--trainingpeaks btn--large" id="uploadTpBtn" hidden>Upload to TrainingPeaks</button>
             <button class="btn btn--ghost" id="resetBtn">Convert Another File</button>
           </div>
+          <div class="upload-status" id="uploadStatus" hidden></div>
         </div>
       </section>
 
@@ -73,11 +76,12 @@
     </main>
 
     <footer>
-      <p>All conversion happens locally in your browser — your file is never uploaded anywhere.</p>
+      <p>Conversion happens locally in your browser. Files are only sent to a platform when you choose to upload.</p>
     </footer>
   </div>
 
   <script src="converter.js"></script>
   <script src="app.js"></script>
+  <script src="config.js"></script>
 </body>
 </html>
