@@ -22,6 +22,7 @@
   const WATTS_OFFSET       = 4;
   const CADENCE_OFFSET     = 38;
   const HR_OFFSET          = 46;
+  const DIST_KM_OFFSET     = 40;  // cumulative distance (km) as little-endian float32
 
   // Bytes 32-35 of each record: little-endian uint32 milliseconds from workout start.
   // This is the authoritative source of timing — do NOT use a fixed sample rate.
@@ -55,6 +56,12 @@
             bytes[offset + 3] << 24) >>> 0; // >>> 0 keeps it unsigned
   }
 
+  /** Read a little-endian IEEE 754 float32 from bytes at offset. */
+  function readFloat32LE(bytes, offset) {
+    const view = new DataView(bytes.buffer, bytes.byteOffset + offset, 4);
+    return view.getFloat32(0, true);
+  }
+
   function isoTimestamp(date) {
     return date.toISOString().replace(/\.\d{3}Z$/, 'Z');
   }
@@ -77,8 +84,8 @@
    * @param  {ArrayBuffer} arrayBuffer
    * @returns {{
    *   athleteName: string,
-   *   trackpoints: Array<{sec:number, watts:number, cadence:number|null, hr:number|null}>,
-   *   stats: { durationSec, avgWatts, maxWatts, hasCadence, hasHR, recordCount }
+   *   trackpoints: Array<{sec:number, watts:number, cadence:number|null, hr:number|null, distMeters:number|null}>,
+   *   stats: { durationSec, avgWatts, maxWatts, hasCadence, hasHR, recordCount, totalDistMeters }
    * }}
    */
   function parse3dp(arrayBuffer) {
@@ -94,6 +101,7 @@
     const wattsBySecond   = new Map();
     const cadenceBySecond = new Map();
     const hrBySecond      = new Map();
+    const distBySecond    = new Map(); // cumulative km — keep the latest value per second
     let validCount  = 0;
     let realCadence = 0;
     let realHR      = 0;
@@ -115,6 +123,7 @@
       const watts   = bytes[offset + WATTS_OFFSET];
       const cadence = bytes[offset + CADENCE_OFFSET];
       const hr      = bytes[offset + HR_OFFSET];
+      const distKm  = readFloat32LE(bytes, offset + DIST_KM_OFFSET);
       const sec     = Math.floor(ms / 1000);
 
       if (cadence !== CADENCE_DEFAULT && cadence !== 0) realCadence++;
@@ -127,6 +136,8 @@
       wattsBySecond.get(sec).push(watts);
       cadenceBySecond.get(sec).push(cadence);
       hrBySecond.get(sec).push(hr);
+      // Cumulative distance: overwrite with the latest value in this second
+      if (distKm > 0) distBySecond.set(sec, distKm);
     }
 
     if (validCount === 0) {
@@ -142,16 +153,20 @@
       const w = avgInt(wattsBySecond.get(sec));
       const c = hasCadence ? avgInt(cadenceBySecond.get(sec)) : null;
       const h = hasHR      ? avgInt(hrBySecond.get(sec))      : null;
+      const d = distBySecond.has(sec) ? distBySecond.get(sec) * 1000 : null; // km → meters
       return {
         sec,
-        watts:   w,
-        cadence: (c !== null && c !== 0) ? c : null,
-        hr:      (h !== null && h !== 0) ? h : null,
+        watts:      w,
+        cadence:    (c !== null && c !== 0) ? c : null,
+        hr:         (h !== null && h !== 0) ? h : null,
+        distMeters: d,
       };
     });
 
     const allWatts    = trackpoints.map(t => t.watts).filter(w => w > 0);
     const durationSec = Math.floor(lastValidMs / 1000);
+    const lastDist    = trackpoints.findLast(t => t.distMeters !== null);
+    const totalDistMeters = lastDist ? lastDist.distMeters : 0;
 
     const stats = {
       durationSec,
@@ -160,6 +175,7 @@
       hasCadence,
       hasHR,
       recordCount: validCount,
+      totalDistMeters,
     };
 
     return { athleteName, trackpoints, stats };
@@ -173,14 +189,16 @@
     const tpXml = trackpoints.map(tp => {
       const t = new Date(startTime.getTime() + tp.sec * 1000);
 
-      const hrBlock = tp.hr !== null
+      const hrBlock  = tp.hr !== null
         ? `            <HeartRateBpm><Value>${tp.hr}</Value></HeartRateBpm>\n` : '';
-      const cadLine = tp.cadence !== null
+      const distLine = tp.distMeters !== null
+        ? `            <DistanceMeters>${tp.distMeters.toFixed(2)}</DistanceMeters>\n` : '';
+      const cadLine  = tp.cadence !== null
         ? `              <ns3:RunCadence>${tp.cadence}</ns3:RunCadence>\n` : '';
 
       return `          <Trackpoint>
             <Time>${isoTimestamp(t)}</Time>
-${hrBlock}            <Extensions>
+${hrBlock}${distLine}            <Extensions>
               <ns3:TPX xmlns:ns3="http://www.garmin.com/xmlschemas/ActivityExtension/v2">
               <ns3:Watts>${tp.watts}</ns3:Watts>
 ${cadLine}              </ns3:TPX>
@@ -199,7 +217,7 @@ ${cadLine}              </ns3:TPX>
       <Id>${isoTimestamp(startTime)}</Id>
       <Lap StartTime="${isoTimestamp(startTime)}">
         <TotalTimeSeconds>${stats.durationSec}</TotalTimeSeconds>
-        <DistanceMeters>0</DistanceMeters>
+        <DistanceMeters>${stats.totalDistMeters.toFixed(2)}</DistanceMeters>
         <Calories>0</Calories>
         <Intensity>Active</Intensity>
         <TriggerMethod>Manual</TriggerMethod>

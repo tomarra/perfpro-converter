@@ -35,7 +35,8 @@ A record is a valid data record if bytes 1–3 equal `0x00 0x01 0x00`. Records t
 | 36–37 | Unknown | — | |
 | 38 | Cadence | `uint8` | RPM; `90` = PerfPro default when no sensor connected |
 | 39 | Cadence (duplicate) | `uint8` | Same value as byte 38 |
-| 40–45 | Unknown | — | |
+| **40–43** | **Cumulative distance** | `float32 LE` | **Kilometres travelled from workout start; 0.0 on the first record** |
+| 44–45 | Unknown | — | |
 | 46 | Heart rate | `uint8` | BPM; `50` = PerfPro default when no HR monitor connected |
 | 47 | Heart rate (duplicate) | `uint8` | Same value as byte 46 |
 
@@ -67,6 +68,21 @@ The parser counts how many records contain a non-default, non-zero value for eac
 
 ---
 
+## Distance
+
+Bytes 40–43 of each data record store the **cumulative distance in kilometres** as an IEEE 754 single-precision float (little-endian). The value monotonically increases from `0.0` at the first record to the total workout distance at the last.
+
+Observed characteristics from a 57:20 indoor cycling workout:
+- First record (423 ms): `0.000000` km
+- Second record (977 ms): `0.007699` km → implied speed ≈ 30 km/h
+- Final record (57:20): `30.917` km → **19.21 miles** at **20.10 mph** average
+
+To convert to Strava-compatible metres multiply by 1000. Per-trackpoint distance can be included directly in TCX as `<DistanceMeters>`, which allows Strava to compute speed automatically.
+
+> **Note:** This field was discovered by reverse-engineering in February 2026. The implied average speed of ~32 km/h at ~185 W weighted average power is consistent with a standard cycling power-to-speed model, confirming the interpretation.
+
+---
+
 ## Footer
 
 After the data records, the file ends with a plaintext block that describes the workout structure — interval names, power targets, segment labels (e.g. `"Solid 94% just under FTP|2 of 5"`), and a `PAUSE` marker. These bytes do not conform to the 48-byte record structure and are ignored by the parser.
@@ -89,6 +105,10 @@ function readUint32LE(bytes, offset) {
   return (bytes[offset] | bytes[offset+1]<<8 | bytes[offset+2]<<16 | bytes[offset+3]<<24) >>> 0;
 }
 
+function readFloat32LE(bytes, offset) {
+  return new DataView(bytes.buffer, bytes.byteOffset + offset, 4).getFloat32(0, true);
+}
+
 const bytes = new Uint8Array(arrayBuffer);
 const slots = Math.floor((bytes.length - RECORD_START) / RECORD_SIZE);
 
@@ -96,9 +116,11 @@ for (let i = 0; i < slots; i++) {
   const off = RECORD_START + i * RECORD_SIZE;
   if (!isDataRecord(bytes, off)) continue;
 
-  const ms      = readUint32LE(bytes, off + 32); // timestamp
-  const watts   = bytes[off + 4];
-  const cadence = bytes[off + 38];
-  const hr      = bytes[off + 46];
+  const ms          = readUint32LE(bytes,  off + 32); // timestamp (ms from start)
+  const watts       = bytes[off + 4];
+  const cadence     = bytes[off + 38];
+  const hr          = bytes[off + 46];
+  const distKm      = readFloat32LE(bytes, off + 40); // cumulative km
+  const distMeters  = distKm * 1000;
 }
 ```

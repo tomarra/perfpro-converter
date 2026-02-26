@@ -356,25 +356,75 @@ fileInput.addEventListener('change', () => {
 // ─── Power chart ─────────────────────────────────────────────────────────────
 
 function buildPowerChart(trackpoints, stats) {
+  const hasSpeed = stats.totalDistMeters > 0;
+
   const VW = 640, VH = 210;
-  const padL = 52, padR = 20, padT = 18, padB = 38;
+  const padL = 52, padR = hasSpeed ? 58 : 20, padT = 18, padB = 38;
   const plotW = VW - padL - padR;
   const plotH = VH - padT - padB;
 
   const maxSec = stats.durationSec || 1;
 
-  // Round the Y ceiling up to the nearest 50 W for clean grid lines
+  // ── Power scale (left Y) ─────────────────────────────────────────────────
   const yMax = Math.max(50, Math.ceil(stats.maxWatts / 50) * 50);
   const avgW  = stats.avgWatts;
 
-  const sx = sec   => padL + (sec   / maxSec) * plotW;
-  const sy = watts => padT + plotH  - (watts  / yMax)  * plotH;
+  const sx  = sec   => padL + (sec   / maxSec) * plotW;
+  const syW = watts => padT + plotH  - (watts  / yMax)  * plotH;
 
-  // ── Area + line path ──────────────────────────────────────────────────────
+  // ── Speed data (right Y) ─────────────────────────────────────────────────
+  let speedLinePath = '', speedYLabels = '', speedRightAxis = '', speedTitle = '', legend = '';
+
+  if (hasSpeed) {
+    // Instantaneous speed (m/s → mph) from per-second cumulative distance deltas
+    const raw = trackpoints.map((tp, i) => {
+      if (tp.distMeters === null || i === 0) return { sec: tp.sec, mph: 0 };
+      const prev = trackpoints[i - 1];
+      if (prev.distMeters === null) return { sec: tp.sec, mph: 0 };
+      const deltaSec = tp.sec - prev.sec;
+      const mph = deltaSec > 0 ? ((tp.distMeters - prev.distMeters) / deltaSec) * 2.23694 : 0;
+      return { sec: tp.sec, mph: Math.max(0, mph) };
+    });
+
+    // 5-point rolling average for smoothness
+    const HALF = 2;
+    const speedPoints = raw.map((d, i) => {
+      const slice = raw.slice(Math.max(0, i - HALF), i + HALF + 1);
+      return { sec: d.sec, mph: slice.reduce((s, v) => s + v.mph, 0) / slice.length };
+    });
+
+    const speedMax = Math.max(5, Math.ceil(Math.max(...speedPoints.map(d => d.mph)) / 5) * 5);
+    const syS = mph => padT + plotH - (mph / speedMax) * plotH;
+
+    // Right Y axis labels
+    const sStep = speedMax <= 20 ? 5 : speedMax <= 40 ? 10 : 15;
+    for (let v = 0; v <= speedMax; v += sStep) {
+      const y = syS(v).toFixed(2);
+      speedYLabels += `<text x="${VW - padR + 8}" y="${y}" dy="0.35em">${v}</text>`;
+    }
+
+    speedRightAxis = `<line class="chart__axis" x1="${VW - padR}" y1="${padT}" x2="${VW - padR}" y2="${padT + plotH}" />`;
+    speedTitle     = `<text class="chart__axis-title" x="${VW - padR}" y="${padT - 6}" text-anchor="middle">mph</text>`;
+
+    // Speed line path
+    speedLinePath = speedPoints
+      .map((d, i) => (i === 0 ? 'M' : 'L') + sx(d.sec).toFixed(2) + ',' + syS(d.mph).toFixed(2))
+      .join(' ');
+
+    legend = `
+  <g class="chart__legend" transform="translate(${padL + 8}, ${padT + 8})">
+    <line x1="0" y1="0" x2="14" y2="0" class="chart__line" />
+    <text x="18" dy="0.35em" class="chart__legend-label">Power</text>
+    <line x1="72" y1="0" x2="86" y2="0" class="chart__speed-line" />
+    <text x="90" dy="0.35em" class="chart__legend-label">Speed</text>
+  </g>`;
+  }
+
+  // ── Power area + line path ────────────────────────────────────────────────
   let lineParts = [];
   trackpoints.forEach((tp, i) => {
     const x = sx(tp.sec).toFixed(2);
-    const y = sy(tp.watts).toFixed(2);
+    const y = syW(tp.watts).toFixed(2);
     lineParts.push(i === 0 ? `M${x},${y}` : `L${x},${y}`);
   });
   const linePath = lineParts.join(' ');
@@ -384,17 +434,17 @@ function buildPowerChart(trackpoints, stats) {
   const baseY  = (padT + plotH).toFixed(2);
   const areaPath = `${linePath} L${lastX},${baseY} L${firstX},${baseY} Z`;
 
-  // ── Y axis ticks ─────────────────────────────────────────────────────────
+  // ── Power Y axis ticks ────────────────────────────────────────────────────
   const yStep = yMax <= 200 ? 50 : yMax <= 400 ? 100 : 150;
   let gridLines = '', yLabels = '';
   for (let w = 0; w <= yMax; w += yStep) {
-    const y = sy(w).toFixed(2);
+    const y = syW(w).toFixed(2);
     gridLines += `<line x1="${padL}" y1="${y}" x2="${VW - padR}" y2="${y}" />`;
     yLabels   += `<text x="${padL - 8}" y="${y}" dy="0.35em">${w}</text>`;
   }
 
   // ── X axis ticks (every 10 min, or every 5 min for short rides) ──────────
-  const xTickInterval = maxSec <= 1800 ? 300 : 600; // 5 min or 10 min
+  const xTickInterval = maxSec <= 1800 ? 300 : 600;
   let xLabels = '';
   for (let s = 0; s <= maxSec; s += xTickInterval) {
     const x   = sx(s).toFixed(2);
@@ -403,12 +453,13 @@ function buildPowerChart(trackpoints, stats) {
   }
 
   // ── Average power line ────────────────────────────────────────────────────
-  const avgY    = sy(avgW).toFixed(2);
+  const avgY    = syW(avgW).toFixed(2);
   const avgLine = `<line class="chart__avg-line" x1="${padL}" y1="${avgY}" x2="${VW - padR}" y2="${avgY}" />`;
-  const avgLabel = `<text class="chart__avg-label" x="${VW - padR + 4}" y="${avgY}" dy="0.35em">${avgW}W</text>`;
+  // Avg label only shown in single-axis mode; right side is occupied by speed axis when dual
+  const avgLabel = hasSpeed ? '' : `<text class="chart__avg-label" x="${VW - padR + 4}" y="${avgY}" dy="0.35em">${avgW}W</text>`;
 
   return `
-<svg class="power-chart" viewBox="0 0 ${VW} ${VH}" xmlns="http://www.w3.org/2000/svg" aria-label="Power output chart">
+<svg class="power-chart" viewBox="0 0 ${VW} ${VH}" xmlns="http://www.w3.org/2000/svg" aria-label="Power${hasSpeed ? ' and speed' : ''} chart">
   <defs>
     <linearGradient id="areaGrad" x1="0" y1="0" x2="0" y2="1">
       <stop offset="0%"   stop-color="#4f8ef7" stop-opacity="0.35" />
@@ -422,29 +473,38 @@ function buildPowerChart(trackpoints, stats) {
   <!-- Grid lines -->
   <g class="chart__grid">${gridLines}</g>
 
-  <!-- Plot area clipped -->
+  <!-- Power area + line -->
   <g clip-path="url(#plotClip)">
     <path class="chart__area" d="${areaPath}" fill="url(#areaGrad)" />
     <path class="chart__line" d="${linePath}" />
     ${avgLine}
   </g>
 
-  <!-- Avg label (outside clip) -->
+  <!-- Speed line -->
+  ${hasSpeed ? `<g clip-path="url(#plotClip)"><path class="chart__speed-line" d="${speedLinePath}" /></g>` : ''}
+
+  <!-- Avg label (single-axis mode only) -->
   ${avgLabel}
 
   <!-- Axes -->
   <line class="chart__axis" x1="${padL}" y1="${padT}" x2="${padL}" y2="${padT + plotH}" />
   <line class="chart__axis" x1="${padL}" y1="${padT + plotH}" x2="${VW - padR}" y2="${padT + plotH}" />
+  ${speedRightAxis}
 
   <!-- Labels -->
   <g class="chart__y-labels">${yLabels}</g>
   <g class="chart__x-labels">${xLabels}</g>
+  ${hasSpeed ? `<g class="chart__y-labels chart__y-labels--right">${speedYLabels}</g>` : ''}
 
   <!-- Axis titles -->
   <text class="chart__axis-title chart__axis-title--y"
         transform="rotate(-90) translate(${-(padT + plotH / 2)}, 12)">Watts</text>
   <text class="chart__axis-title chart__axis-title--x"
         x="${padL + plotW / 2}" y="${VH - 2}">Time</text>
+  ${speedTitle}
+
+  <!-- Legend -->
+  ${legend}
 </svg>`.trim();
 }
 
@@ -494,11 +554,21 @@ convertBtn.addEventListener('click', () => {
     // Build power chart
     chartWrap.innerHTML = buildPowerChart(currentWorkout.trackpoints, stats);
 
+    const distKm    = stats.totalDistMeters / 1000;
+    const distMiles = distKm * 0.621371;
+    const hours     = stats.durationSec / 3600;
+    const avgSpeedMph = hours > 0 ? distMiles / hours : 0;
+    const avgSpeedKph = hours > 0 ? distKm    / hours : 0;
+
     const rows = [
       ['Athlete',      athleteName],
       ['Duration',     formatDuration(stats.durationSec)],
       ['Avg Power',    `${stats.avgWatts} W`],
       ['Max Power',    `${stats.maxWatts} W`],
+      ...(stats.totalDistMeters > 0 ? [
+        ['Distance',   `${distMiles.toFixed(2)} mi (${distKm.toFixed(2)} km)`],
+        ['Avg Speed',  `${avgSpeedMph.toFixed(1)} mph (${avgSpeedKph.toFixed(1)} km/h)`],
+      ] : []),
       ['Cadence',      stats.hasCadence ? 'Included (sensor detected)' : 'Not included (no sensor)'],
       ['Heart Rate',   stats.hasHR      ? 'Included (HR monitor detected)' : 'Not included (no monitor)'],
       ['Trackpoints',  currentWorkout.trackpoints.length.toLocaleString()],
