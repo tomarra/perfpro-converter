@@ -6,6 +6,13 @@
   padding: 0;
 }
 
+/* Reinforce the HTML `hidden` attribute — some browsers' user-agent stylesheets
+   omit `!important`, allowing author rules like `.btn { display: inline-flex }`
+   to win the cascade and show elements that should be hidden. */
+[hidden] {
+  display: none !important;
+}
+
 :root {
   --color-bg:        #0f1117;
   --color-surface:   #1c1e26;

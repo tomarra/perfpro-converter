@@ -37,7 +37,7 @@ jobs:
           TP_ENABLED=$([ -n "$TP_CLIENT_ID" ]         && echo true || echo false)
           cat > config.js << EOF
           'use strict';
-          const PLATFORMS = {
+          var PLATFORMS = {
             strava: {
               enabled:      ${STRAVA_ENABLED},
               clientId:     '${STRAVA_CLIENT_ID}',

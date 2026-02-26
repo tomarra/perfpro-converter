@@ -15,7 +15,9 @@
 // Set `enabled: true` only after filling in real credentials.
 // Buttons for disabled platforms are hidden from users automatically.
 
-const PLATFORMS = {
+// Must use `var` (not `const`) so app.js can detect a missing config and
+// fall back to download-only mode instead of throwing a ReferenceError.
+var PLATFORMS = {
   strava: {
     enabled:      false,
     clientId:     'YOUR_STRAVA_CLIENT_ID',

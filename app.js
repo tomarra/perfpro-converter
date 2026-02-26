@@ -99,6 +99,15 @@ function handleFile(file) {
   showSection('optionsSection');
 }
 
+// ─── Platform defaults ───────────────────────────────────────────────────────
+// Safe fallback: both platforms disabled. config.js (loaded after this script)
+// overrides this with real credentials when present. Because config.js uses
+// `var PLATFORMS`, it simply reassigns this global. If config.js is absent or
+// fails to load, this fallback remains in effect and upload buttons stay hidden.
+/* eslint-disable no-var */
+var PLATFORMS = { strava: { enabled: false }, trainingpeaks: { enabled: false } };
+/* eslint-enable no-var */
+
 // ─── Platform upload ─────────────────────────────────────────────────────────
 
 function setUploadStatus(state, message, url) {
