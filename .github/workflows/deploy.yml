@@ -1,0 +1,71 @@
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # Generate config.js from GitHub Secrets.
+      # `enabled` is set to `true` automatically if the corresponding secret
+      # has a value; otherwise it defaults to `false` and the button is hidden.
+      - name: Generate config.js from secrets
+        env:
+          STRAVA_CLIENT_ID:     ${{ secrets.STRAVA_CLIENT_ID }}
+          STRAVA_CLIENT_SECRET: ${{ secrets.STRAVA_CLIENT_SECRET }}
+          TP_CLIENT_ID:         ${{ secrets.TP_CLIENT_ID }}
+          TP_CLIENT_SECRET:     ${{ secrets.TP_CLIENT_SECRET }}
+        run: |
+          STRAVA_ENABLED=$([ -n "$STRAVA_CLIENT_ID" ] && echo true || echo false)
+          TP_ENABLED=$([ -n "$TP_CLIENT_ID" ]         && echo true || echo false)
+          cat > config.js << EOF
+          'use strict';
+          const PLATFORMS = {
+            strava: {
+              enabled:      ${STRAVA_ENABLED},
+              clientId:     '${STRAVA_CLIENT_ID}',
+              clientSecret: '${STRAVA_CLIENT_SECRET}',
+              authUrl:      'https://www.strava.com/oauth/authorize',
+              tokenUrl:     'https://www.strava.com/oauth/token',
+              uploadUrl:    'https://www.strava.com/api/v3/uploads',
+              scope:        'activity:write,read',
+              name:         'Strava',
+            },
+            trainingpeaks: {
+              enabled:      ${TP_ENABLED},
+              clientId:     '${TP_CLIENT_ID}',
+              clientSecret: '${TP_CLIENT_SECRET}',
+              authUrl:      'https://oauth.trainingpeaks.com/oauth/authorize',
+              tokenUrl:     'https://oauth.trainingpeaks.com/oauth/token',
+              uploadUrl:    'https://api.trainingpeaks.com/v1/workouts/file',
+              scope:        'file:upload',
+              name:         'TrainingPeaks',
+            },
+          };
+          EOF
+
+      - uses: actions/configure-pages@v4
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: '.'
+
+      - id: deployment
+        uses: actions/deploy-pages@v4

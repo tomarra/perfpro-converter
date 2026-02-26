@@ -396,6 +396,57 @@ header h1 {
   text-anchor: middle;
 }
 
+/* ─── Platform upload buttons ─────────────────────────────────────────────── */
+
+.btn--strava {
+  background: #FC4C02;
+  color: #fff;
+}
+.btn--strava:hover:not(:disabled) {
+  background: #e04300;
+}
+
+.btn--trainingpeaks {
+  background: #4A90E2;
+  color: #fff;
+}
+.btn--trainingpeaks:hover:not(:disabled) {
+  background: #3a7fd0;
+}
+
+/* ─── Upload status ────────────────────────────────────────────────────────── */
+
+.upload-status {
+  margin-top: 0.75rem;
+  padding: 0.65rem 1rem;
+  border-radius: var(--radius-sm);
+  font-size: 0.9rem;
+  font-weight: 500;
+}
+
+.upload-status[data-state="pending"] {
+  background: color-mix(in srgb, var(--color-accent) 12%, var(--color-surface-2));
+  color: var(--color-accent);
+  border: 1px solid color-mix(in srgb, var(--color-accent) 30%, var(--color-border));
+}
+
+.upload-status[data-state="success"] {
+  background: color-mix(in srgb, var(--color-success) 12%, var(--color-surface-2));
+  color: var(--color-success);
+  border: 1px solid color-mix(in srgb, var(--color-success) 30%, var(--color-border));
+}
+
+.upload-status[data-state="error"] {
+  background: color-mix(in srgb, var(--color-error) 10%, var(--color-surface-2));
+  color: var(--color-error);
+  border: 1px solid color-mix(in srgb, var(--color-error) 40%, var(--color-border));
+}
+
+.upload-status a {
+  color: inherit;
+  text-decoration: underline;
+}
+
 /* ─── Footer ───────────────────────────────────────────────────────────────── */
 
 footer {

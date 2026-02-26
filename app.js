@@ -8,20 +8,23 @@ let currentOutput  = null; // { blob, filename }
 
 // ─── DOM refs ────────────────────────────────────────────────────────────────
 
-const dropZone       = document.getElementById('dropZone');
-const fileInput      = document.getElementById('fileInput');
-const optionsSection = document.getElementById('optionsSection');
-const resultSection  = document.getElementById('resultSection');
-const errorSection   = document.getElementById('errorSection');
-const startDateInput = document.getElementById('startDateInput');
-const convertBtn     = document.getElementById('convertBtn');
-const downloadBtn    = document.getElementById('downloadBtn');
-const resetBtn       = document.getElementById('resetBtn');
-const errorResetBtn  = document.getElementById('errorResetBtn');
-const errorMsg       = document.getElementById('errorMsg');
-const statsGrid      = document.getElementById('statsGrid');
-const chartWrap      = document.getElementById('chartWrap');
-const browseBtn      = document.getElementById('browseBtn');
+const dropZone        = document.getElementById('dropZone');
+const fileInput       = document.getElementById('fileInput');
+const optionsSection  = document.getElementById('optionsSection');
+const resultSection   = document.getElementById('resultSection');
+const errorSection    = document.getElementById('errorSection');
+const startDateInput  = document.getElementById('startDateInput');
+const convertBtn      = document.getElementById('convertBtn');
+const downloadBtn     = document.getElementById('downloadBtn');
+const resetBtn        = document.getElementById('resetBtn');
+const errorResetBtn   = document.getElementById('errorResetBtn');
+const errorMsg        = document.getElementById('errorMsg');
+const statsGrid       = document.getElementById('statsGrid');
+const chartWrap       = document.getElementById('chartWrap');
+const browseBtn       = document.getElementById('browseBtn');
+const uploadStravaBtn = document.getElementById('uploadStravaBtn');
+const uploadTpBtn     = document.getElementById('uploadTpBtn');
+const uploadStatus    = document.getElementById('uploadStatus');
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -65,6 +68,9 @@ function reset() {
   fileInput.value = '';
   hideAllSections();
   dropZone.classList.remove('drop-zone--active', 'drop-zone--loaded');
+  uploadStatus.hidden        = true;
+  uploadStatus.innerHTML     = '';
+  uploadStatus.dataset.state = '';
 }
 
 // ─── File handling ────────────────────────────────────────────────────────────
@@ -92,6 +98,120 @@ function handleFile(file) {
   dropZone.classList.add('drop-zone--loaded');
   showSection('optionsSection');
 }
+
+// ─── Platform upload ─────────────────────────────────────────────────────────
+
+function setUploadStatus(state, message, url) {
+  uploadStatus.hidden        = false;
+  uploadStatus.dataset.state = state;
+  uploadStatus.innerHTML     = message +
+    (url ? ` <a href="${url}" target="_blank" rel="noopener">View on platform →</a>` : '');
+}
+
+function startOAuth(platformKey) {
+  if (!currentOutput) return;
+  const cfg = PLATFORMS[platformKey];
+
+  currentOutput.blob.text().then(tcxText => {
+    sessionStorage.setItem('pendingUpload', JSON.stringify({
+      content:  tcxText,
+      filename: currentOutput.filename,
+    }));
+
+    const redirectUri = encodeURIComponent(window.location.origin + window.location.pathname);
+    const authUrl =
+      `${cfg.authUrl}?client_id=${cfg.clientId}` +
+      `&redirect_uri=${redirectUri}` +
+      `&response_type=code` +
+      `&scope=${encodeURIComponent(cfg.scope)}` +
+      `&state=${platformKey}` +
+      `&approval_prompt=auto`;
+
+    window.location.href = authUrl;
+  });
+}
+
+async function handleOAuthCallback(platformKey, code, blob, filename) {
+  const cfg = PLATFORMS[platformKey];
+  try {
+    const tokenRes = await fetch(cfg.tokenUrl, {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body:    new URLSearchParams({
+        client_id:     cfg.clientId,
+        client_secret: cfg.clientSecret,
+        code,
+        grant_type:    'authorization_code',
+        redirect_uri:  window.location.origin + window.location.pathname,
+      }),
+    });
+    if (!tokenRes.ok) throw new Error(`Token exchange failed (${tokenRes.status})`);
+    const { access_token } = await tokenRes.json();
+
+    setUploadStatus('pending', `Uploading to ${cfg.name}…`);
+    await uploadFile(platformKey, access_token, blob, filename);
+
+  } catch (err) {
+    setUploadStatus('error', `Upload failed: ${err.message}`);
+  }
+}
+
+async function uploadFile(platformKey, accessToken, blob, filename) {
+  const cfg  = PLATFORMS[platformKey];
+  const form = new FormData();
+
+  if (platformKey === 'strava') {
+    form.append('file',      blob, filename);
+    form.append('data_type', 'tcx');
+    form.append('name',      filename.replace(/\.tcx$/i, '').replace(/_/g, ' '));
+  } else {
+    form.append('file', blob, filename);
+  }
+
+  const res = await fetch(cfg.uploadUrl, {
+    method:  'POST',
+    headers: { Authorization: `Bearer ${accessToken}` },
+    body:    form,
+  });
+
+  if (!res.ok) {
+    const detail = await res.text().catch(() => '');
+    throw new Error(`${cfg.name} returned ${res.status}${detail ? ': ' + detail : ''}`);
+  }
+
+  const activityUrl = platformKey === 'strava'
+    ? 'https://www.strava.com/athlete/training'
+    : 'https://app.trainingpeaks.com/';
+
+  setUploadStatus('success', `Successfully uploaded to ${cfg.name}!`, activityUrl);
+}
+
+// Check for OAuth callback on page load (fires after redirect back from platform)
+(function checkOAuthCallback() {
+  const params = new URLSearchParams(window.location.search);
+  const code   = params.get('code');
+  const state  = params.get('state');
+  const error  = params.get('error');
+
+  if (!code && !error) return;
+
+  history.replaceState(null, '', window.location.pathname);
+
+  const pending = JSON.parse(sessionStorage.getItem('pendingUpload') || 'null');
+  sessionStorage.removeItem('pendingUpload');
+
+  if (error || !pending || !state || !PLATFORMS[state]) {
+    showSection('resultSection');
+    setUploadStatus('error', `Authorization was cancelled or failed: ${error || 'unknown error'}`);
+    return;
+  }
+
+  const blob = new Blob([pending.content], { type: 'application/xml' });
+  currentOutput = { blob, filename: pending.filename };
+  showSection('resultSection');
+  setUploadStatus('pending', `Connecting to ${PLATFORMS[state].name}…`);
+  handleOAuthCallback(state, code, blob, pending.filename);
+})();
 
 // ─── Drag and drop ───────────────────────────────────────────────────────────
 
@@ -285,6 +405,12 @@ convertBtn.addEventListener('click', () => {
     convertBtn.disabled = false;
     convertBtn.textContent = 'Convert';
     showSection('resultSection');
+
+    uploadStravaBtn.hidden      = !PLATFORMS.strava.enabled;
+    uploadTpBtn.hidden          = !PLATFORMS.trainingpeaks.enabled;
+    uploadStatus.hidden         = true;
+    uploadStatus.innerHTML      = '';
+    uploadStatus.dataset.state  = '';
   };
 
   reader.onerror = function () {
@@ -307,6 +433,11 @@ downloadBtn.addEventListener('click', () => {
   a.click();
   setTimeout(() => URL.revokeObjectURL(url), 10000);
 });
+
+// ─── Platform upload buttons ─────────────────────────────────────────────────
+
+uploadStravaBtn.addEventListener('click', () => startOAuth('strava'));
+uploadTpBtn.addEventListener('click',     () => startOAuth('trainingpeaks'));
 
 // ─── Reset ───────────────────────────────────────────────────────────────────
 
