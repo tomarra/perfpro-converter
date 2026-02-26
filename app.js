@@ -294,7 +294,9 @@ async function uploadFile(platformKey, accessToken, blob, filename) {
 }
 
 // Check for OAuth callback on page load (fires after redirect back from platform)
-(function checkOAuthCallback() {
+// Must run after DOMContentLoaded so that config.js has already executed and
+// PLATFORMS contains the real credentials (tokenUrl, uploadUrl, etc.).
+document.addEventListener('DOMContentLoaded', function checkOAuthCallback() {
   const params = new URLSearchParams(window.location.search);
   const code   = params.get('code');
   const state  = params.get('state');
@@ -318,7 +320,7 @@ async function uploadFile(platformKey, accessToken, blob, filename) {
   showSection('resultSection');
   setUploadStatus('pending', `Connecting to ${PLATFORMS[state].name}…`);
   handleOAuthCallback(state, code, blob, pending.filename);
-})();
+});
 
 // ─── Drag and drop ───────────────────────────────────────────────────────────
 
