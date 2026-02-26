@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PerfPro Converter</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>PerfPro Converter</h1>
+      <p class="subtitle">Convert <code>.3dp</code> files from PerfPro / Computrainer to other formats</p>
+    </header>
+
+    <main>
+      <section class="upload-section">
+        <div class="drop-zone" id="dropZone">
+          <div class="drop-zone__content">
+            <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+              <polyline points="17 8 12 3 7 8"/>
+              <line x1="12" y1="3" x2="12" y2="15"/>
+            </svg>
+            <p>Drag & drop your <code>.3dp</code> file here</p>
+            <p class="or">or</p>
+            <button type="button" class="btn btn--primary" id="browseBtn">Browse File</button>
+            <input type="file" id="fileInput" accept=".3dp" hidden>
+          </div>
+        </div>
+      </section>
+
+      <section class="options-section" id="optionsSection" hidden>
+        <h2>Conversion Options</h2>
+
+        <div class="option-group">
+          <label for="formatSelect">Output Format</label>
+          <select id="formatSelect">
+            <option value="tcx">TCX — Garmin Training Center (TrainingPeaks, Strava, Garmin Connect)</option>
+          </select>
+        </div>
+
+        <div class="option-group">
+          <label for="startDateInput">Workout Start Date &amp; Time</label>
+          <input type="datetime-local" id="startDateInput">
+          <p class="hint">Detected from filename. Adjust if needed.</p>
+        </div>
+
+        <button class="btn btn--primary btn--large" id="convertBtn">Convert</button>
+      </section>
+
+      <section class="result-section" id="resultSection" hidden>
+        <div class="result-card" id="resultCard">
+          <h2>Conversion Complete</h2>
+
+          <div class="chart-wrap" id="chartWrap"></div>
+
+          <dl class="stats" id="statsGrid"></dl>
+
+          <div class="result-actions">
+            <button class="btn btn--success btn--large" id="downloadBtn">Download TCX</button>
+            <button class="btn btn--ghost" id="resetBtn">Convert Another File</button>
+          </div>
+        </div>
+      </section>
+
+      <section class="error-section" id="errorSection" hidden>
+        <div class="error-card">
+          <p id="errorMsg"></p>
+          <button class="btn btn--ghost" id="errorResetBtn">Try Again</button>
+        </div>
+      </section>
+    </main>
+
+    <footer>
+      <p>All conversion happens locally in your browser — your file is never uploaded anywhere.</p>
+    </footer>
+  </div>
+
+  <script src="converter.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

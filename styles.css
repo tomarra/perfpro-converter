@@ -1,0 +1,423 @@
+/* ─── Reset & base ─────────────────────────────────────────────────────────── */
+
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+:root {
+  --color-bg:        #0f1117;
+  --color-surface:   #1c1e26;
+  --color-surface-2: #252832;
+  --color-border:    #2e3142;
+  --color-accent:    #4f8ef7;
+  --color-accent-hover: #3a7de8;
+  --color-success:   #34c97a;
+  --color-success-hover: #28b56b;
+  --color-error:     #f25c5c;
+  --color-text:      #e2e4ef;
+  --color-muted:     #7c8099;
+  --radius:          12px;
+  --radius-sm:       8px;
+  --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+}
+
+body {
+  background-color: var(--color-bg);
+  color: var(--color-text);
+  font-family: var(--font);
+  font-size: 16px;
+  line-height: 1.6;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+code {
+  font-family: "SF Mono", "Fira Code", "Consolas", monospace;
+  background: var(--color-surface-2);
+  padding: 0.1em 0.35em;
+  border-radius: 4px;
+  font-size: 0.88em;
+  color: var(--color-accent);
+}
+
+/* ─── Layout ───────────────────────────────────────────────────────────────── */
+
+.container {
+  max-width: 680px;
+  margin: 0 auto;
+  padding: 2rem 1.5rem 3rem;
+  width: 100%;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ─── Header ───────────────────────────────────────────────────────────────── */
+
+header {
+  text-align: center;
+  margin-bottom: 2.5rem;
+}
+
+header h1 {
+  font-size: 2rem;
+  font-weight: 700;
+  letter-spacing: -0.5px;
+  color: #fff;
+}
+
+.subtitle {
+  margin-top: 0.5rem;
+  color: var(--color-muted);
+}
+
+/* ─── Drop zone ────────────────────────────────────────────────────────────── */
+
+.upload-section {
+  margin-bottom: 1.5rem;
+}
+
+.drop-zone {
+  border: 2px dashed var(--color-border);
+  border-radius: var(--radius);
+  background: var(--color-surface);
+  cursor: pointer;
+  transition: border-color 0.2s, background 0.2s;
+}
+
+.drop-zone:hover,
+.drop-zone--active {
+  border-color: var(--color-accent);
+  background: color-mix(in srgb, var(--color-accent) 6%, var(--color-surface));
+}
+
+.drop-zone--loaded {
+  border-style: solid;
+  border-color: var(--color-accent);
+}
+
+.drop-zone__content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.6rem;
+  padding: 3rem 2rem;
+  text-align: center;
+  pointer-events: none;
+}
+
+.drop-zone__content svg {
+  color: var(--color-muted);
+}
+
+.drop-zone--loaded .drop-zone__content svg {
+  color: var(--color-accent);
+}
+
+.drop-zone__content p {
+  color: var(--color-muted);
+}
+
+.or {
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+/* ─── Buttons ──────────────────────────────────────────────────────────────── */
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  border: none;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  font-family: var(--font);
+  font-size: 0.95rem;
+  font-weight: 600;
+  line-height: 1;
+  padding: 0.55rem 1.2rem;
+  text-decoration: none;
+  transition: background 0.15s, opacity 0.15s;
+  pointer-events: auto;
+}
+
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btn--primary {
+  background: var(--color-accent);
+  color: #fff;
+}
+.btn--primary:hover:not(:disabled) {
+  background: var(--color-accent-hover);
+}
+
+.btn--success {
+  background: var(--color-success);
+  color: #fff;
+}
+.btn--success:hover:not(:disabled) {
+  background: var(--color-success-hover);
+}
+
+.btn--ghost {
+  background: var(--color-surface-2);
+  color: var(--color-text);
+  border: 1px solid var(--color-border);
+}
+.btn--ghost:hover:not(:disabled) {
+  background: var(--color-border);
+}
+
+.btn--large {
+  font-size: 1rem;
+  padding: 0.75rem 1.75rem;
+}
+
+/* ─── Options section ──────────────────────────────────────────────────────── */
+
+.options-section {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  padding: 1.75rem;
+  margin-bottom: 1.5rem;
+}
+
+.options-section h2 {
+  font-size: 1.1rem;
+  font-weight: 600;
+  margin-bottom: 1.25rem;
+  color: #fff;
+}
+
+.option-group {
+  margin-bottom: 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.option-group label {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--color-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.option-group select,
+.option-group input[type="datetime-local"] {
+  background: var(--color-surface-2);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  color: var(--color-text);
+  font-family: var(--font);
+  font-size: 0.95rem;
+  padding: 0.6rem 0.8rem;
+  width: 100%;
+  appearance: none;
+  -webkit-appearance: none;
+  transition: border-color 0.15s;
+}
+
+.option-group select:focus,
+.option-group input[type="datetime-local"]:focus {
+  outline: none;
+  border-color: var(--color-accent);
+}
+
+.hint {
+  font-size: 0.8rem;
+  color: var(--color-muted);
+}
+
+/* ─── Result section ───────────────────────────────────────────────────────── */
+
+.result-section {
+  margin-bottom: 1.5rem;
+}
+
+.result-card {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  padding: 1.75rem;
+}
+
+.result-card h2 {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--color-success);
+  margin-bottom: 1.25rem;
+}
+
+/* Stats grid */
+.stats {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+  margin-bottom: 1.75rem;
+}
+
+.stat {
+  background: var(--color-surface-2);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  padding: 0.75rem 1rem;
+}
+
+.stat dt {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--color-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin-bottom: 0.25rem;
+}
+
+.stat dd {
+  font-size: 0.95rem;
+  color: var(--color-text);
+  word-break: break-word;
+}
+
+.result-actions {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+/* ─── Error section ────────────────────────────────────────────────────────── */
+
+.error-section {
+  margin-bottom: 1.5rem;
+}
+
+.error-card {
+  background: color-mix(in srgb, var(--color-error) 10%, var(--color-surface));
+  border: 1px solid color-mix(in srgb, var(--color-error) 40%, var(--color-border));
+  border-radius: var(--radius);
+  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.error-card p {
+  color: var(--color-error);
+  font-weight: 500;
+}
+
+/* ─── Power chart ──────────────────────────────────────────────────────────── */
+
+.chart-wrap {
+  margin-bottom: 1.5rem;
+  background: var(--color-surface-2);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+
+.power-chart {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+/* Grid lines */
+.chart__grid line {
+  stroke: var(--color-border);
+  stroke-width: 1;
+}
+
+/* Area fill */
+.chart__area {
+  /* fill set via SVG gradient */
+}
+
+/* Power line */
+.chart__line {
+  fill: none;
+  stroke: #4f8ef7;
+  stroke-width: 1.5;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+
+/* Average power dashed line */
+.chart__avg-line {
+  stroke: #f5a623;
+  stroke-width: 1.2;
+  stroke-dasharray: 5 4;
+}
+
+/* Axes */
+.chart__axis {
+  stroke: var(--color-border);
+  stroke-width: 1;
+}
+
+/* Y/X tick labels */
+.chart__y-labels text,
+.chart__x-labels text {
+  fill: var(--color-muted);
+  font-family: var(--font);
+  font-size: 10px;
+  text-anchor: end;
+}
+
+.chart__x-labels text {
+  text-anchor: middle;
+}
+
+/* Avg watt label to the right of the avg line */
+.chart__avg-label {
+  fill: #f5a623;
+  font-family: var(--font);
+  font-size: 10px;
+  text-anchor: start;
+}
+
+/* Axis titles */
+.chart__axis-title {
+  fill: var(--color-muted);
+  font-family: var(--font);
+  font-size: 10px;
+  text-anchor: middle;
+}
+
+/* ─── Footer ───────────────────────────────────────────────────────────────── */
+
+footer {
+  margin-top: auto;
+  padding-top: 2rem;
+  text-align: center;
+  font-size: 0.8rem;
+  color: var(--color-muted);
+}
+
+/* ─── Responsive ───────────────────────────────────────────────────────────── */
+
+@media (max-width: 480px) {
+  header h1 {
+    font-size: 1.6rem;
+  }
+
+  .stats {
+    grid-template-columns: 1fr;
+  }
+
+  .drop-zone__content {
+    padding: 2rem 1.25rem;
+  }
+}
