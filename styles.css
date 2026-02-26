@@ -486,6 +486,17 @@ footer {
   color: var(--color-muted);
 }
 
+.github-link {
+  display: inline-block;
+  margin-top: 0.75rem;
+  color: var(--color-muted);
+  transition: color 0.15s ease;
+}
+
+.github-link:hover {
+  color: var(--text-primary);
+}
+
 /* ─── Responsive ───────────────────────────────────────────────────────────── */
 
 @media (max-width: 480px) {
