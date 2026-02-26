@@ -501,3 +501,36 @@ footer {
     padding: 2rem 1.25rem;
   }
 }
+
+/* ─── iOS install hint ──────────────────────────────────────────────────────── */
+
+.install-hint {
+  margin-top: 1.25rem;
+  padding: 0.75rem 1rem;
+  background: rgba(79, 142, 247, 0.1);
+  border: 1px solid rgba(79, 142, 247, 0.3);
+  border-radius: 8px;
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+.install-hint strong {
+  color: var(--text-primary);
+}
+
+.install-hint__dismiss {
+  margin-left: 0.5rem;
+  padding: 0.1rem 0.5rem;
+  background: none;
+  border: 1px solid currentColor;
+  border-radius: 4px;
+  color: inherit;
+  font-size: inherit;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.install-hint__dismiss:hover {
+  color: var(--text-primary);
+}
