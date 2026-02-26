@@ -403,6 +403,28 @@ header h1 {
   text-anchor: middle;
 }
 
+/* Speed line */
+.chart__speed-line {
+  fill: none;
+  stroke: #f97316;
+  stroke-width: 1.5;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+
+/* Right Y axis labels (speed) — text-anchor: start so they read left-to-right */
+.chart__y-labels--right text {
+  text-anchor: start;
+  fill: #f97316;
+}
+
+/* Legend labels inside the chart */
+.chart__legend-label {
+  fill: var(--color-muted);
+  font-family: var(--font);
+  font-size: 10px;
+}
+
 /* ─── Platform upload buttons ─────────────────────────────────────────────── */
 
 .btn--strava {

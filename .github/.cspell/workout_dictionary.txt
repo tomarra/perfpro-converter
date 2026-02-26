@@ -1,0 +1,4 @@
+computrainer
+perfpro
+strava
+trainingpeaks
