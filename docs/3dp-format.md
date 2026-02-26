@@ -25,20 +25,20 @@ A record is a valid data record if bytes 1–3 equal `0x00 0x01 0x00`. Records t
 
 ### 48-byte Record Layout
 
-| Byte(s)   | Field                   | Type         | Notes                                                                |
-| --------- | ----------------------- | ------------ | -------------------------------------------------------------------- |
-| 0         | Segment marker          | `uint8`      | `0x83` = lap 1, `0x84` = lap 2, etc. — not fully decoded             |
-| 1–3       | Record signature        | 3 bytes      | Always `0x00 0x01 0x00` for data records                             |
-| 4         | Power                   | `uint8`      | Watts, range 0–255                                                   |
-| 5–31      | Unknown                 | —            | Reserved / not decoded                                               |
-| **32–35** | **Timestamp**           | `uint32 LE`  | **Milliseconds from workout start** — authoritative timing source    |
-| 36–37     | Unknown                 | —            |                                                                      |
-| 38        | Cadence                 | `uint8`      | RPM; `90` = PerfPro default when no sensor connected                 |
-| 39        | Cadence (duplicate)     | `uint8`      | Same value as byte 38                                                |
-| **40–43** | **Cumulative distance** | `float32 LE` | **kilometers travelled from workout start; 0.0 on the first record** |
-| 44–45     | Unknown                 | —            |                                                                      |
-| 46        | Heart rate              | `uint8`      | BPM; `50` = PerfPro default when no HR monitor connected             |
-| 47        | Heart rate (duplicate)  | `uint8`      | Same value as byte 46                                                |
+| Byte(s)   | Field                   | Type         | Notes                                                               |
+| --------- | ----------------------- | ------------ | ------------------------------------------------------------------- |
+| 0         | Segment marker          | `uint8`      | `0x83` = lap 1, `0x84` = lap 2, etc. — not fully decoded            |
+| 1–3       | Record signature        | 3 bytes      | Always `0x00 0x01 0x00` for data records                            |
+| 4         | Power                   | `uint8`      | Watts, range 0–255                                                  |
+| 5–31      | Unknown                 | —            | Reserved / not decoded                                              |
+| **32–35** | **Timestamp**           | `uint32 LE`  | **Milliseconds from workout start** — authoritative timing source   |
+| 36–37     | Unknown                 | —            |                                                                     |
+| 38        | Cadence                 | `uint8`      | RPM; `90` = PerfPro default when no sensor connected                |
+| 39        | Cadence (duplicate)     | `uint8`      | Same value as byte 38                                               |
+| **40–43** | **Cumulative distance** | `float32 LE` | **kilometers traveled from workout start; 0.0 on the first record** |
+| 44–45     | Unknown                 | —            |                                                                     |
+| 46        | Heart rate              | `uint8`      | BPM; `50` = PerfPro default when no HR monitor connected            |
+| 47        | Heart rate (duplicate)  | `uint8`      | Same value as byte 46                                               |
 
 ---
 
