@@ -28,8 +28,11 @@
   const TIMESTAMP_MS_OFFSET = 32;
 
   // Maximum plausible gap between consecutive records (~550 ms typical).
-  // Records whose timestamp jumps beyond this are corrupt sentinels and are skipped.
-  const MAX_DELTA_MS = 5000;
+  // Rest periods between intervals can legitimately exceed 30 seconds.
+  // Corrupt sentinel records at the end of the file typically jump by hundreds of millions
+  // of milliseconds, so 5 minutes (300 000 ms) safely rejects them while accepting all
+  // real rest periods.
+  const MAX_DELTA_MS = 300000;
 
   // Sensor "default" values written by PerfPro when no real sensor is connected
   const CADENCE_DEFAULT = 90;
@@ -69,8 +72,10 @@
   }
 
   function isDataRecord(bytes, offset) {
+    // byte[2] and byte[3] are the stable record-type signature (0x01, 0x00).
+    // byte[1] carries the high byte of the watts uint16 — it is 0x00 for power < 256 W
+    // and 0x01 for power 256–511 W — so it must NOT be used as a fixed signature test.
     return (
-      bytes[offset + 1] === 0x00 &&
       bytes[offset + 2] === 0x01 &&
       bytes[offset + 3] === 0x00
     );
@@ -110,6 +115,7 @@
     let validCount = 0;
     let realCadence = 0;
     let realHR = 0;
+    let maxRawWatts = 0;
     let prevMs = -1;
     let lastValidMs = 0;
 
@@ -120,17 +126,23 @@
       // Read the embedded millisecond timestamp and reject corrupt sentinel records
       // (the final record(s) in the file often have a wildly out-of-range timestamp).
       const ms = readUint32LE(bytes, offset + TIMESTAMP_MS_OFFSET);
-      if (prevMs !== -1 && ms - prevMs > MAX_DELTA_MS) continue;
+      if (prevMs !== -1 && ms - prevMs > MAX_DELTA_MS) {
+        prevMs = ms; // update so subsequent valid records aren't cascaded-away
+        continue;
+      }
       prevMs = ms;
       lastValidMs = ms;
 
       validCount++;
-      const watts = bytes[offset + WATTS_OFFSET];
+      // Watts are stored as a little-endian uint16: byte[4] is the low byte,
+      // byte[5] (which mirrors byte[1]) is the high byte, allowing values up to 511 W.
+      const watts = bytes[offset + WATTS_OFFSET] | (bytes[offset + WATTS_OFFSET + 1] << 8);
       const cadence = bytes[offset + CADENCE_OFFSET];
       const hr = bytes[offset + HR_OFFSET];
       const distKm = readFloat32LE(bytes, offset + DIST_KM_OFFSET);
       const sec = Math.floor(ms / 1000);
 
+      if (watts > maxRawWatts) maxRawWatts = watts;
       if (cadence !== CADENCE_DEFAULT && cadence !== 0) realCadence++;
       if (hr !== HR_DEFAULT && hr !== 0) realHR++;
 
@@ -180,7 +192,7 @@
       avgWatts: allWatts.length
         ? Math.round(allWatts.reduce((s, v) => s + v, 0) / allWatts.length)
         : 0,
-      maxWatts: allWatts.length ? Math.max(...allWatts) : 0,
+      maxWatts: maxRawWatts,
       hasCadence,
       hasHR,
       recordCount: validCount,

@@ -42,11 +42,16 @@ const durationSec = Math.floor(lastValidMs / 1000);
 ```
 
 ### Sentinel record filtering
-The final record in the file passes the data-record signature check (`bytes 1–3 = 0x00 0x01 0x00`) but carries a corrupt timestamp — a jump of ~1.1 billion ms (~13 days) from the previous record. This is caught by rejecting any record whose timestamp delta exceeds 5,000 ms:
+The final record in the file passes the data-record signature check (`bytes[2] = 0x01, bytes[3] = 0x00`) but carries a corrupt timestamp — a jump of ~1.1 billion ms (~13 days) from the previous record. This is caught by rejecting any record whose timestamp delta exceeds `MAX_DELTA_MS`:
 
 ```js
-if (prevMs !== -1 && (ms - prevMs) > MAX_DELTA_MS) continue;
+if (prevMs !== -1 && (ms - prevMs) > MAX_DELTA_MS) {
+  prevMs = ms;
+  continue;
+}
 ```
+
+See Bug 4 for the discovery that the original `MAX_DELTA_MS = 5000` and the original `isDataRecord` signature were both incorrect.
 
 ---
 
@@ -97,6 +102,106 @@ PerfPro generates filenames using the **local wall-clock time** of the machine r
 ```js
 return new Date(yr, mo - 1, dy, hh, mm, ss); // local time — PerfPro stamps with wall-clock time
 ```
+
+---
+
+## Bug 4 — Interval workout duration truncated to first rest gap
+
+### Symptom
+A 59-minute interval workout was reported as ~18 minutes. The file contained 12 structured efforts separated by ~30-second rest periods.
+
+### Root cause
+Two separate problems compounded each other:
+
+**1. `MAX_DELTA_MS` too small for rest periods.**
+The sentinel filter rejected any record whose timestamp delta exceeded `MAX_DELTA_MS = 5000` (5 seconds). Interval workouts have legitimate ~30-second gaps between efforts, all of which exceeded this threshold and were silently discarded.
+
+**2. Cascade from stale `prevMs`.**
+When a record was skipped, `prevMs` was not updated. Every subsequent record was then compared against the stale `prevMs` value from before the gap, so its delta was even larger — causing every remaining record in the workout to be skipped as well. Only the ~18 minutes before the first rest gap survived.
+
+### Fix
+`MAX_DELTA_MS` was raised to 300,000 ms (5 minutes) — well above any plausible rest interval but well below the ~1.1 billion ms sentinel jump. `prevMs` is now updated even when a record is skipped, preventing the cascade:
+
+```js
+const MAX_DELTA_MS = 300000; // 5 minutes — accommodates rest gaps in interval workouts
+
+// ...inside the parse loop:
+if (prevMs !== -1 && ms - prevMs > MAX_DELTA_MS) {
+  prevMs = ms; // advance anchor so subsequent valid records aren't cascaded away
+  continue;
+}
+```
+
+After the fix: 1 sentinel record rejected, all 12 rest gaps preserved, duration reported as 59.3 minutes.
+
+---
+
+## Bug 5 — Power values capped at 255 W and peak power understated
+
+### Symptom
+A workout with a known max power of 316 W and average power of 159 W was reported as 251 W max and 146 W average.
+
+### Root cause
+Three separate issues, all in the power-reading path:
+
+**1. `isDataRecord` rejected high-power records.**
+The original record-type check required `bytes[offset+1] === 0x00`:
+
+```js
+return (
+  bytes[offset + 1] === 0x00 &&   // ← incorrect
+  bytes[offset + 2] === 0x01 &&
+  bytes[offset + 3] === 0x00
+);
+```
+
+Byte 1 is not a fixed signature byte — it is the **high byte of the watts `uint16`**. For power ≥ 256 W, byte 1 equals `0x01`. This caused all 657 high-power records (those with watts > 255) to be silently excluded from parsing.
+
+**2. Watts read as `uint8`, capping at 255 W.**
+Even for the records that did pass the signature check, watts were read from a single byte:
+
+```js
+const watts = bytes[offset + WATTS_OFFSET]; // uint8, max 255
+```
+
+The correct encoding is a little-endian `uint16` across bytes 4–5:
+
+```js
+const watts = bytes[offset + 4] | (bytes[offset + 5] << 8); // uint16 LE
+```
+
+**3. Max power computed from per-second averages.**
+`maxWatts` was derived from the averaged trackpoints rather than the raw samples. In a second that contained both a 316 W and a 298 W sample, the trackpoint value was 307 W — hiding the true peak entirely.
+
+### Fix
+
+`isDataRecord` now checks only the two stable signature bytes:
+
+```js
+function isDataRecord(bytes, offset) {
+  // bytes[2] and bytes[3] are the stable record-type signature.
+  // bytes[1] is the high byte of the watts uint16 — must NOT be used as a fixed check.
+  return (
+    bytes[offset + 2] === 0x01 &&
+    bytes[offset + 3] === 0x00
+  );
+}
+```
+
+Watts are read as `uint16 LE`, and a separate `maxRawWatts` variable is updated from every raw sample before averaging:
+
+```js
+const watts = bytes[offset + 4] | (bytes[offset + 5] << 8);
+if (watts > maxRawWatts) maxRawWatts = watts;
+```
+
+The final stats object uses `maxRawWatts` rather than the per-second maximum:
+
+```js
+maxWatts: maxRawWatts,
+```
+
+After all three fixes: avg = 159 W, max = 316 W.
 
 ---
 
