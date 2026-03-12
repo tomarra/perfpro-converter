@@ -8,7 +8,7 @@
  * Run with: npm test
  */
 
-import { test, describe } from "node:test";
+import { test, describe, after } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { join, dirname } from "node:path";
@@ -535,7 +535,11 @@ for (const result of allResults) {
 }
 
 // ── Validation report — printed after all test output has flushed ─────────────
-// process.on('exit') fires after node:test has written all its ▶/✔ lines,
-// so the table reliably appears at the bottom of the output.
+// after() inside a describe runs after all sibling tests complete, ensuring
+// the report appears at the bottom without interfering with Node's IPC channel.
 
-process.on("exit", () => printReport(allResults));
+describe("Validation Report", () => {
+  after(() => printReport(allResults));
+  test("all fixtures processed", () =>
+    assert.strictEqual(allResults.length, FIXTURES.length));
+});
