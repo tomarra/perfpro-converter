@@ -42,6 +42,7 @@
           <label for="formatSelect">Output Format</label>
           <select id="formatSelect">
             <option value="tcx">TCX — Garmin Training Center (TrainingPeaks, Strava, Garmin Connect)</option>
+            <option value="fit">FIT — Garmin device format (TrainingPeaks, Strava, Garmin Connect)</option>
           </select>
         </div>
 
@@ -63,7 +64,7 @@
           <dl class="stats" id="statsGrid"></dl>
 
           <div class="result-actions">
-            <button class="btn btn--success btn--large" id="downloadBtn">Download TCX</button>
+            <button class="btn btn--success btn--large" id="downloadBtn">Download</button>
             <button class="btn btn--strava btn--large" id="uploadStravaBtn" hidden>Upload to Strava</button>
             <button class="btn btn--trainingpeaks btn--large" id="uploadTpBtn" hidden>Upload to TrainingPeaks</button>
             <button class="btn btn--ghost" id="resetBtn">Convert Another File</button>

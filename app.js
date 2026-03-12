@@ -219,9 +219,12 @@ function startOAuth(platformKey) {
   if (!currentOutput) return;
   const cfg = PLATFORMS[platformKey];
 
-  currentOutput.blob.text().then(tcxText => {
+  currentOutput.blob.arrayBuffer().then(buffer => {
+    const bytes = new Uint8Array(buffer);
+    let binary = '';
+    for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
     sessionStorage.setItem('pendingUpload', JSON.stringify({
-      content:  tcxText,
+      content:  btoa(binary),
       filename: currentOutput.filename,
     }));
 
@@ -268,9 +271,10 @@ async function uploadFile(platformKey, accessToken, blob, filename) {
   const form = new FormData();
 
   if (platformKey === 'strava') {
+    const isFit = filename.toLowerCase().endsWith('.fit');
     form.append('file',      blob, filename);
-    form.append('data_type', 'tcx');
-    form.append('name',      filename.replace(/\.tcx$/i, '').replace(/_/g, ' '));
+    form.append('data_type', isFit ? 'fit' : 'tcx');
+    form.append('name',      filename.replace(/\.(tcx|fit)$/i, '').replace(/_/g, ' '));
   } else {
     form.append('file', blob, filename);
   }
@@ -315,7 +319,11 @@ document.addEventListener('DOMContentLoaded', function checkOAuthCallback() {
     return;
   }
 
-  const blob = new Blob([pending.content], { type: 'application/xml' });
+  const binary = atob(pending.content);
+  const bytes  = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+  const isFit  = pending.filename.toLowerCase().endsWith('.fit');
+  const blob   = new Blob([bytes], { type: isFit ? 'application/octet-stream' : 'application/xml' });
   currentOutput = { blob, filename: pending.filename };
   showSection('resultSection');
   setUploadStatus('pending', `Connecting to ${PLATFORMS[state].name}…`);
@@ -586,6 +594,10 @@ convertBtn.addEventListener('click', () => {
       outputContent  = PerfProConverter.buildTcx(currentWorkout, startTime);
       outputFilename = currentFile.name.replace(/\.3dp$/i, '.tcx');
       mimeType       = 'application/xml';
+    } else if (format === 'fit') {
+      outputContent  = PerfProConverter.buildFit(currentWorkout, startTime);
+      outputFilename = currentFile.name.replace(/\.3dp$/i, '.fit');
+      mimeType       = 'application/octet-stream';
     }
 
     const blob = new Blob([outputContent], { type: mimeType });
@@ -624,6 +636,8 @@ convertBtn.addEventListener('click', () => {
         `<div class="stat"><dt>${label}</dt><dd>${value}</dd></div>`
       );
     });
+
+    downloadBtn.textContent = format === 'fit' ? 'Download FIT' : 'Download TCX';
 
     convertBtn.disabled = false;
     convertBtn.textContent = 'Convert';

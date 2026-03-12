@@ -28,8 +28,11 @@
   const TIMESTAMP_MS_OFFSET = 32;
 
   // Maximum plausible gap between consecutive records (~550 ms typical).
-  // Records whose timestamp jumps beyond this are corrupt sentinels and are skipped.
-  const MAX_DELTA_MS = 5000;
+  // Rest periods between intervals can legitimately exceed 30 seconds.
+  // Corrupt sentinel records at the end of the file typically jump by hundreds of millions
+  // of milliseconds, so 5 minutes (300 000 ms) safely rejects them while accepting all
+  // real rest periods.
+  const MAX_DELTA_MS = 300000;
 
   // Sensor "default" values written by PerfPro when no real sensor is connected
   const CADENCE_DEFAULT = 90;
@@ -69,11 +72,10 @@
   }
 
   function isDataRecord(bytes, offset) {
-    return (
-      bytes[offset + 1] === 0x00 &&
-      bytes[offset + 2] === 0x01 &&
-      bytes[offset + 3] === 0x00
-    );
+    // byte[2] and byte[3] are the stable record-type signature (0x01, 0x00).
+    // byte[1] carries the high byte of the watts uint16 — it is 0x00 for power < 256 W
+    // and 0x01 for power 256–511 W — so it must NOT be used as a fixed signature test.
+    return bytes[offset + 2] === 0x01 && bytes[offset + 3] === 0x00;
   }
 
   function avgInt(arr) {
@@ -110,6 +112,7 @@
     let validCount = 0;
     let realCadence = 0;
     let realHR = 0;
+    let maxRawWatts = 0;
     let prevMs = -1;
     let lastValidMs = 0;
 
@@ -120,17 +123,24 @@
       // Read the embedded millisecond timestamp and reject corrupt sentinel records
       // (the final record(s) in the file often have a wildly out-of-range timestamp).
       const ms = readUint32LE(bytes, offset + TIMESTAMP_MS_OFFSET);
-      if (prevMs !== -1 && ms - prevMs > MAX_DELTA_MS) continue;
+      if (prevMs !== -1 && ms - prevMs > MAX_DELTA_MS) {
+        prevMs = ms; // update so subsequent valid records aren't cascaded-away
+        continue;
+      }
       prevMs = ms;
       lastValidMs = ms;
 
       validCount++;
-      const watts = bytes[offset + WATTS_OFFSET];
+      // Watts are stored as a little-endian uint16: byte[4] is the low byte,
+      // byte[5] (which mirrors byte[1]) is the high byte, allowing values up to 511 W.
+      const watts =
+        bytes[offset + WATTS_OFFSET] | (bytes[offset + WATTS_OFFSET + 1] << 8);
       const cadence = bytes[offset + CADENCE_OFFSET];
       const hr = bytes[offset + HR_OFFSET];
       const distKm = readFloat32LE(bytes, offset + DIST_KM_OFFSET);
       const sec = Math.floor(ms / 1000);
 
+      if (watts > maxRawWatts) maxRawWatts = watts;
       if (cadence !== CADENCE_DEFAULT && cadence !== 0) realCadence++;
       if (hr !== HR_DEFAULT && hr !== 0) realHR++;
 
@@ -180,7 +190,7 @@
       avgWatts: allWatts.length
         ? Math.round(allWatts.reduce((s, v) => s + v, 0) / allWatts.length)
         : 0,
-      maxWatts: allWatts.length ? Math.max(...allWatts) : 0,
+      maxWatts: maxRawWatts,
       hasCadence,
       hasHR,
       recordCount: validCount,
@@ -276,7 +286,228 @@ ${tpXml}
     return null;
   }
 
+  // ─── FIT builder ─────────────────────────────────────────────────────────────
+
+  /**
+   * Build a binary .fit file from a parsed workout.
+   *
+   * @param  {{ trackpoints: Array, stats: object }} workout
+   * @param  {Date} startTime
+   * @returns {Uint8Array}  binary FIT file contents
+   */
+  function buildFit(workout, startTime) {
+    const { trackpoints, stats } = workout;
+
+    // FIT epoch: Dec 31, 1989 00:00:00 UTC = Unix timestamp 631065600
+    const FIT_EPOCH = 631065600;
+    function toFitTs(d) {
+      return (Math.floor(d.getTime() / 1000) - FIT_EPOCH) >>> 0;
+    }
+
+    const startTs = toFitTs(startTime);
+    const endTs = toFitTs(
+      new Date(startTime.getTime() + stats.durationSec * 1000)
+    );
+
+    // ── CRC-16 (FIT variant) ─────────────────────────────────────────────────
+    const CRC_TABLE = [
+      0x0000, 0xcc01, 0xd801, 0x1400, 0xf001, 0x3c00, 0x2800, 0xe401, 0xa001,
+      0x6c00, 0x7800, 0xb401, 0x5000, 0x9c01, 0x8801, 0x4400,
+    ];
+    function crc16(data, start, end) {
+      let c = 0;
+      for (let i = start; i < end; i++) {
+        const b = data[i];
+        let tmp = CRC_TABLE[c & 0xf];
+        c = (c >>> 4) & 0x0fff;
+        c ^= tmp ^ CRC_TABLE[b & 0xf];
+        tmp = CRC_TABLE[c & 0xf];
+        c = (c >>> 4) & 0x0fff;
+        c ^= tmp ^ CRC_TABLE[(b >>> 4) & 0xf];
+      }
+      return c;
+    }
+
+    // ── Byte buffer ──────────────────────────────────────────────────────────
+    const buf = [];
+    const u8 = (v) => buf.push(v & 0xff);
+    const u16 = (v) => buf.push(v & 0xff, (v >>> 8) & 0xff);
+    const u32 = (v) => {
+      v = v >>> 0;
+      buf.push(
+        v & 0xff,
+        (v >>> 8) & 0xff,
+        (v >>> 16) & 0xff,
+        (v >>> 24) & 0xff
+      );
+    };
+
+    // FIT base type codes
+    const ENUM = 0x00;
+    const UINT8 = 0x02;
+    const UINT16 = 0x84;
+    const UINT32 = 0x86;
+    const UINT32Z = 0x8c;
+
+    // ── Definition message helper ────────────────────────────────────────────
+    // fields: [[defNum, byteSize, baseType], ...]
+    function def(localType, globalMessage, fields) {
+      u8(0x40 | localType); // definition record header
+      u8(0); // reserved
+      u8(0); // architecture: little-endian
+      u16(globalMessage);
+      u8(fields.length);
+      for (const [defNum, size, baseType] of fields) {
+        u8(defNum);
+        u8(size);
+        u8(baseType);
+      }
+    }
+
+    // ── file_id  (local 0, global 0) ─────────────────────────────────────────
+    def(0, 0, [
+      [0, 1, ENUM],
+      [1, 2, UINT16],
+      [2, 2, UINT16],
+      [3, 4, UINT32Z],
+      [4, 4, UINT32],
+    ]);
+    u8(0); // local type 0 data header
+    u8(4); // type = activity
+    u16(255); // manufacturer = development
+    u16(0); // product
+    u32(0); // serial_number
+    u32(startTs); // time_created
+
+    // ── record  (local 1, global 20) ─────────────────────────────────────────
+    // Fields: timestamp, power, distance (scale ×100 → cm), cadence, heart_rate
+    def(1, 20, [
+      [253, 4, UINT32],
+      [7, 2, UINT16],
+      [5, 4, UINT32],
+      [4, 1, UINT8],
+      [3, 1, UINT8],
+    ]);
+    for (const tp of trackpoints) {
+      u8(1); // local type 1 data header
+      u32(startTs + tp.sec);
+      u16(tp.watts);
+      u32(
+        tp.distMeters !== null ? Math.round(tp.distMeters * 100) : 0xffffffff
+      );
+      u8(tp.cadence !== null ? tp.cadence : 0xff);
+      u8(tp.hr !== null ? tp.hr : 0xff);
+    }
+
+    // ── lap  (local 2, global 19) ────────────────────────────────────────────
+    const distRaw =
+      stats.totalDistMeters > 0
+        ? Math.round(stats.totalDistMeters * 100) >>> 0
+        : 0xffffffff;
+    def(2, 19, [
+      [254, 2, UINT16],
+      [253, 4, UINT32],
+      [0, 1, ENUM],
+      [1, 1, ENUM],
+      [2, 4, UINT32],
+      [7, 4, UINT32],
+      [8, 4, UINT32],
+      [9, 4, UINT32],
+      [20, 2, UINT16],
+      [21, 2, UINT16],
+      [5, 1, ENUM],
+    ]);
+    u8(2); // local type 2 data header
+    u16(0); // message_index
+    u32(endTs); // timestamp
+    u8(9);
+    u8(1); // event = lap, event_type = stop
+    u32(startTs); // start_time
+    u32(stats.durationSec * 1000); // total_elapsed_time (raw = seconds × 1000)
+    u32(stats.durationSec * 1000); // total_timer_time
+    u32(distRaw); // total_distance (raw = meters × 100)
+    u16(stats.avgWatts); // avg_power
+    u16(stats.maxWatts); // max_power
+    u8(2); // sport = cycling
+
+    // ── session  (local 3, global 18) ────────────────────────────────────────
+    def(3, 18, [
+      [254, 2, UINT16],
+      [253, 4, UINT32],
+      [0, 1, ENUM],
+      [1, 1, ENUM],
+      [2, 4, UINT32],
+      [7, 4, UINT32],
+      [8, 4, UINT32],
+      [9, 4, UINT32],
+      [20, 2, UINT16],
+      [21, 2, UINT16],
+      [5, 1, ENUM],
+      [6, 1, ENUM],
+      [25, 2, UINT16],
+      [26, 2, UINT16],
+    ]);
+    u8(3); // local type 3 data header
+    u16(0); // message_index
+    u32(endTs); // timestamp
+    u8(8);
+    u8(1); // event = session, event_type = stop
+    u32(startTs); // start_time
+    u32(stats.durationSec * 1000); // total_elapsed_time
+    u32(stats.durationSec * 1000); // total_timer_time
+    u32(distRaw); // total_distance
+    u16(stats.avgWatts); // avg_power
+    u16(stats.maxWatts); // max_power
+    u8(2);
+    u8(0); // sport = cycling, sub_sport = generic
+    u16(0);
+    u16(1); // first_lap_index = 0, num_laps = 1
+
+    // ── activity  (local 4, global 34) ───────────────────────────────────────
+    def(4, 34, [
+      [253, 4, UINT32],
+      [0, 4, UINT32],
+      [1, 2, UINT16],
+      [2, 1, ENUM],
+      [3, 1, ENUM],
+      [4, 1, ENUM],
+    ]);
+    u8(4); // local type 4 data header
+    u32(endTs);
+    u32(stats.durationSec * 1000); // total_timer_time
+    u16(1); // num_sessions
+    u8(0);
+    u8(26);
+    u8(1); // type = manual, event = activity, event_type = stop
+
+    // ── Assemble file ────────────────────────────────────────────────────────
+    const data = new Uint8Array(buf);
+
+    // 14-byte file header
+    const hdr = new Uint8Array(14);
+    const hv = new DataView(hdr.buffer);
+    hdr[0] = 14; // header size
+    hdr[1] = 0x10; // protocol version 1.0
+    hv.setUint16(2, 2132, true); // profile version 21.32
+    hv.setUint32(4, data.length, true); // data record size (excludes header + file CRC)
+    hdr[8] = 0x2e;
+    hdr[9] = 0x46;
+    hdr[10] = 0x49;
+    hdr[11] = 0x54; // ".FIT"
+    hv.setUint16(12, crc16(hdr, 0, 12), true); // header CRC (bytes 0–11)
+
+    // Append data CRC
+    const dataCrc = crc16(data, 0, data.length);
+    const out = new Uint8Array(14 + data.length + 2);
+    out.set(hdr, 0);
+    out.set(data, 14);
+    out[14 + data.length] = dataCrc & 0xff;
+    out[14 + data.length + 1] = (dataCrc >>> 8) & 0xff;
+
+    return out;
+  }
+
   // ─── Expose public API ────────────────────────────────────────────────────────
 
-  global.PerfProConverter = { parse3dp, buildTcx, extractStartTime };
+  global.PerfProConverter = { parse3dp, buildTcx, buildFit, extractStartTime };
 })(window);
