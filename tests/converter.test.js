@@ -32,6 +32,45 @@ const { parse3dp, buildTcx, buildFit, extractStartTime } =
 // ── Fixture definitions ───────────────────────────────────────────────────────
 const FIXTURES_DIR = join(__dirname, "fixtures");
 
+// EXPECTED contains the locked-in baseline values for each fixture file.
+// These were captured from the parser on 2026-03-12 and serve as the
+// regression baseline — if any value changes, a test will fail.
+//
+// To update after an intentional parser change: re-run the parser against
+// each fixture, verify the new values are correct, and update them here.
+const EXPECTED = {
+  "Over and Under variable intervals": {
+    durationSec: 3570,
+    avgWatts: 167,
+    maxWatts: 361,
+    totalDistMeters: 32196.37680053711,
+  },
+  "No Limits 9": {
+    durationSec: 3480,
+    avgWatts: 171,
+    maxWatts: 425,
+    totalDistMeters: 32081.695556640625,
+  },
+  "5x Ladder (IF=.72)": {
+    durationSec: 3600,
+    avgWatts: 164,
+    maxWatts: 250,
+    totalDistMeters: 32819.549560546875,
+  },
+  "No Limits 10 – Climbing v2": {
+    durationSec: 3686,
+    avgWatts: 185,
+    maxWatts: 301,
+    totalDistMeters: 28702.363967895508,
+  },
+  "Microburst 3": {
+    durationSec: 3351,
+    avgWatts: 162,
+    maxWatts: 424,
+    totalDistMeters: 31146.10481262207,
+  },
+};
+
 const FIXTURES = [
   {
     file: "Over and Under variable intervals - #perfpro - 2026-02-18-19-01-40.3dp",
@@ -293,31 +332,46 @@ for (const result of allResults) {
     result;
 
   describe(fixture.label, () => {
-    // ── parse3dp validation ────────────────────────────────────────────────
+    const expected = EXPECTED[fixture.label];
 
-    test("parse3dp: produces valid stats", () => {
-      const { stats } = parsedWorkout;
-      assert.ok(
-        stats.durationSec > 0,
-        `durationSec should be > 0, got ${stats.durationSec}`
-      );
-      assert.ok(
-        stats.avgWatts > 0,
-        `avgWatts should be > 0, got ${stats.avgWatts}`
-      );
-      assert.ok(
-        stats.maxWatts > 0,
-        `maxWatts should be > 0, got ${stats.maxWatts}`
-      );
-      assert.ok(
-        stats.maxWatts >= stats.avgWatts,
-        `maxWatts (${stats.maxWatts}) should be >= avgWatts (${stats.avgWatts})`
-      );
-      assert.ok(
-        stats.recordCount > 0,
-        `recordCount should be > 0, got ${stats.recordCount}`
+    // ── Baseline regression tests ──────────────────────────────────────────
+    // Assert exact values against the locked-in baseline captured 2026-03-12.
+    // If any of these fail after a code change, verify the new output is
+    // correct before updating the EXPECTED values above.
+
+    test("parse3dp: duration matches baseline", () => {
+      assert.strictEqual(
+        parsedWorkout.stats.durationSec,
+        expected.durationSec,
+        `durationSec=${parsedWorkout.stats.durationSec} — expected baseline ${expected.durationSec}`
       );
     });
+
+    test("parse3dp: avgWatts matches baseline", () => {
+      assert.strictEqual(
+        parsedWorkout.stats.avgWatts,
+        expected.avgWatts,
+        `avgWatts=${parsedWorkout.stats.avgWatts} — expected baseline ${expected.avgWatts}`
+      );
+    });
+
+    test("parse3dp: maxWatts matches baseline", () => {
+      assert.strictEqual(
+        parsedWorkout.stats.maxWatts,
+        expected.maxWatts,
+        `maxWatts=${parsedWorkout.stats.maxWatts} — expected baseline ${expected.maxWatts}`
+      );
+    });
+
+    test("parse3dp: totalDistMeters matches baseline", () => {
+      assert.strictEqual(
+        parsedWorkout.stats.totalDistMeters,
+        expected.totalDistMeters,
+        `totalDistMeters=${parsedWorkout.stats.totalDistMeters} — expected baseline ${expected.totalDistMeters}`
+      );
+    });
+
+    // ── parse3dp structural validation ────────────────────────────────────
 
     test("parse3dp: athlete name is non-empty", () => {
       assert.ok(
@@ -350,38 +404,35 @@ for (const result of allResults) {
 
     // ── TCX validation ─────────────────────────────────────────────────────
 
-    test("TCX: duration matches parsed stats", () => {
+    test("TCX: duration matches baseline", () => {
       assert.strictEqual(
         tcxStats.durationSec,
-        parsedWorkout.stats.durationSec,
-        `TCX TotalTimeSeconds=${tcxStats.durationSec} should equal parsed durationSec=${parsedWorkout.stats.durationSec}`
+        expected.durationSec,
+        `TCX TotalTimeSeconds=${tcxStats.durationSec} — expected baseline ${expected.durationSec}`
       );
     });
 
-    test("TCX: avgWatts matches parsed stats", () => {
+    test("TCX: avgWatts matches baseline", () => {
       assert.strictEqual(
         tcxStats.avgWatts,
-        parsedWorkout.stats.avgWatts,
-        `TCX AvgWatts=${tcxStats.avgWatts} should equal parsed avgWatts=${parsedWorkout.stats.avgWatts}`
+        expected.avgWatts,
+        `TCX AvgWatts=${tcxStats.avgWatts} — expected baseline ${expected.avgWatts}`
       );
     });
 
-    test("TCX: maxWatts matches parsed stats", () => {
+    test("TCX: maxWatts matches baseline", () => {
       assert.strictEqual(
         tcxStats.maxWatts,
-        parsedWorkout.stats.maxWatts,
-        `TCX MaxWatts=${tcxStats.maxWatts} should equal parsed maxWatts=${parsedWorkout.stats.maxWatts}`
+        expected.maxWatts,
+        `TCX MaxWatts=${tcxStats.maxWatts} — expected baseline ${expected.maxWatts}`
       );
     });
 
-    test("TCX: distance matches parsed stats (within 0.1m)", () => {
+    test("TCX: distance matches baseline (within 0.1m)", () => {
       const tcxDist = tcxStats.distMeters ?? 0;
-      const parsedDist = parsedWorkout.stats.totalDistMeters ?? 0;
       assert.ok(
-        Math.abs(tcxDist - parsedDist) < 0.1,
-        `TCX DistanceMeters=${tcxDist} should match parsed totalDistMeters=${parsedDist} (diff=${Math.abs(
-          tcxDist - parsedDist
-        ).toFixed(4)}m)`
+        Math.abs(tcxDist - expected.totalDistMeters) < 0.1,
+        `TCX DistanceMeters=${tcxDist} — expected baseline ${expected.totalDistMeters} (diff=${Math.abs(tcxDist - expected.totalDistMeters).toFixed(4)}m)`
       );
     });
 
@@ -426,43 +477,40 @@ for (const result of allResults) {
       );
     });
 
-    test("FIT: lap duration matches parsed stats", () => {
+    test("FIT: lap duration matches baseline", () => {
       assert.ok(fitStats.lap, "FIT should have a lap message");
       assert.strictEqual(
         fitStats.lap.durationSec,
-        parsedWorkout.stats.durationSec,
-        `FIT lap durationSec=${fitStats.lap?.durationSec} should equal parsed durationSec=${parsedWorkout.stats.durationSec}`
+        expected.durationSec,
+        `FIT lap durationSec=${fitStats.lap?.durationSec} — expected baseline ${expected.durationSec}`
       );
     });
 
-    test("FIT: lap avgWatts matches parsed stats", () => {
+    test("FIT: lap avgWatts matches baseline", () => {
       assert.ok(fitStats.lap, "FIT should have a lap message");
       assert.strictEqual(
         fitStats.lap.avgWatts,
-        parsedWorkout.stats.avgWatts,
-        `FIT lap avgWatts=${fitStats.lap?.avgWatts} should equal parsed avgWatts=${parsedWorkout.stats.avgWatts}`
+        expected.avgWatts,
+        `FIT lap avgWatts=${fitStats.lap?.avgWatts} — expected baseline ${expected.avgWatts}`
       );
     });
 
-    test("FIT: lap maxWatts matches parsed stats", () => {
+    test("FIT: lap maxWatts matches baseline", () => {
       assert.ok(fitStats.lap, "FIT should have a lap message");
       assert.strictEqual(
         fitStats.lap.maxWatts,
-        parsedWorkout.stats.maxWatts,
-        `FIT lap maxWatts=${fitStats.lap?.maxWatts} should equal parsed maxWatts=${parsedWorkout.stats.maxWatts}`
+        expected.maxWatts,
+        `FIT lap maxWatts=${fitStats.lap?.maxWatts} — expected baseline ${expected.maxWatts}`
       );
     });
 
-    test("FIT: lap distance matches parsed stats (within 0.01m)", () => {
+    test("FIT: lap distance matches baseline (within 0.01m)", () => {
       assert.ok(fitStats.lap, "FIT should have a lap message");
       const fitDist = fitStats.lap.distMeters ?? 0;
-      const parsedDist = parsedWorkout.stats.totalDistMeters ?? 0;
       // FIT stores distance as integer centimeters, so rounding error < 0.01m
       assert.ok(
-        Math.abs(fitDist - parsedDist) < 0.01,
-        `FIT lap distMeters=${fitDist} should match parsed totalDistMeters=${parsedDist} (diff=${Math.abs(
-          fitDist - parsedDist
-        ).toFixed(4)}m)`
+        Math.abs(fitDist - expected.totalDistMeters) < 0.01,
+        `FIT lap distMeters=${fitDist} — expected baseline ${expected.totalDistMeters} (diff=${Math.abs(fitDist - expected.totalDistMeters).toFixed(4)}m)`
       );
     });
 
