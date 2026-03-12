@@ -46,14 +46,35 @@ Your file never leaves your machine.
 
 ---
 
+## Running the Tests
+
+The unit tests use Node's built-in test runner — no extra packages needed.
+
+**Requirements:** Node.js 18 or later
+
+```bash
+npm test
+```
+
+The test suite parses each fixture file, converts it to both TCX and FIT, and asserts that duration, average power, max power, and distance are consistent across all three. It prints a side-by-side validation table as it runs.
+
+### Test fixtures
+
+Real `.3dp` workout files live in `tests/fixtures/`. To add a new fixture, copy a `.3dp` file there and add an entry to the `FIXTURES` array in `tests/converter.test.js`.
+
+---
+
 ## Project Files
 
 ```
 perfpro-converter/
 ├── index.html          Page structure and markup
-├── converter.js        .3dp parser and TCX builder
+├── converter.js        .3dp parser, TCX builder, and FIT builder
 ├── app.js              UI logic, chart, and file download
 ├── styles.css          Dark-theme stylesheet
+├── tests/
+│   ├── converter.test.js   Unit tests (node --test)
+│   └── fixtures/           Sample .3dp files used by the tests
 └── docs/
     ├── 3dp-format.md       Reverse-engineered .3dp binary format spec
     └── development-notes.md  Bugs found, fixes applied, and technical decisions
