@@ -34,23 +34,23 @@ const FIXTURES_DIR = join(__dirname, "fixtures");
 
 const FIXTURES = [
   {
-    file: "Tom Arra - R04 - Over and Under variable intervals - #perfpro - 2026-02-18-19-01-40.3dp",
+    file: "Over and Under variable intervals - #perfpro - 2026-02-18-19-01-40.3dp",
     label: "Over and Under variable intervals",
   },
   {
-    file: "Tom Arra - R05 - No Limits 9 - #perfpro - 2026-01-21-18-54-25.3dp",
+    file: "No Limits 9 - #perfpro - 2026-01-21-18-54-25.3dp",
     label: "No Limits 9",
   },
   {
-    file: "Tom Arra - R04 - 5 x (3-1-1-30s-30s) ladder up (IF=.72) - #perfpro - 2026-01-28-19-00-11.3dp",
+    file: "5 x (3-1-1-30s-30s) ladder up (IF=.72) - #perfpro - 2026-01-28-19-00-11.3dp",
     label: "5x Ladder (IF=.72)",
   },
   {
-    file: "Tom Arra - R04 - No Limits 10 - Climbing v2 - #perfpro - 2026-02-04-19-05-02.3dp",
+    file: "No Limits 10 - Climbing v2 - #perfpro - 2026-02-04-19-05-02.3dp",
     label: "No Limits 10 – Climbing v2",
   },
   {
-    file: "Tom Arra - R04 - Microburst 3 - #perfpro - 2026-02-11-18-54-55.3dp",
+    file: "Microburst 3 - #perfpro - 2026-02-11-18-54-55.3dp",
     label: "Microburst 3",
   },
 ];
@@ -202,17 +202,21 @@ function fmtDist(meters) {
 
 function fmtSpeed(distMeters, durationSec) {
   if (!distMeters || !durationSec) return "N/A";
-  const mph = (distMeters / 1609.344) / (durationSec / 3600);
-  const kph = (distMeters / 1000) / (durationSec / 3600);
+  const mph = distMeters / 1609.344 / (durationSec / 3600);
+  const kph = distMeters / 1000 / (durationSec / 3600);
   return `${mph.toFixed(1)} mph (${kph.toFixed(1)} km/h)`;
 }
 
 function printReport(allResults) {
   const col = (s, w = 26) => String(s ?? "N/A").padEnd(w);
 
-  console.log("\n════════════════════════════════════════════════════════════════");
+  console.log(
+    "\n════════════════════════════════════════════════════════════════"
+  );
   console.log("  PerfPro Converter — Conversion Validation Report");
-  console.log("════════════════════════════════════════════════════════════════");
+  console.log(
+    "════════════════════════════════════════════════════════════════"
+  );
 
   for (const { fixture, parsedWorkout, tcxStats, fitStats } of allResults) {
     const p = parsedWorkout.stats;
@@ -220,25 +224,43 @@ function printReport(allResults) {
 
     console.log(`\n  ┌─ ${fixture.label}`);
     console.log(
-      `  │ ${"Metric".padEnd(16)} │ ${"Parsed (.3dp)".padEnd(26)} │ ${"TCX".padEnd(26)} │ FIT (lap)`
+      `  │ ${"Metric".padEnd(16)} │ ${"Parsed (.3dp)".padEnd(
+        26
+      )} │ ${"TCX".padEnd(26)} │ FIT (lap)`
     );
     console.log(
-      `  │ ${"-".repeat(16)} │ ${"-".repeat(26)} │ ${"-".repeat(26)} │ ${"-".repeat(26)}`
+      `  │ ${"-".repeat(16)} │ ${"-".repeat(26)} │ ${"-".repeat(
+        26
+      )} │ ${"-".repeat(26)}`
     );
     console.log(
-      `  │ ${"Duration".padEnd(16)} │ ${col(fmtDuration(p.durationSec))} │ ${col(fmtDuration(tcxStats.durationSec))} │ ${fmtDuration(l.durationSec)}`
+      `  │ ${"Duration".padEnd(16)} │ ${col(
+        fmtDuration(p.durationSec)
+      )} │ ${col(fmtDuration(tcxStats.durationSec))} │ ${fmtDuration(
+        l.durationSec
+      )}`
     );
     console.log(
-      `  │ ${"Avg Power".padEnd(16)} │ ${col(p.avgWatts + "W")} │ ${col(tcxStats.avgWatts != null ? tcxStats.avgWatts + "W" : "N/A")} │ ${l.avgWatts != null ? l.avgWatts + "W" : "N/A"}`
+      `  │ ${"Avg Power".padEnd(16)} │ ${col(p.avgWatts + "W")} │ ${col(
+        tcxStats.avgWatts != null ? tcxStats.avgWatts + "W" : "N/A"
+      )} │ ${l.avgWatts != null ? l.avgWatts + "W" : "N/A"}`
     );
     console.log(
-      `  │ ${"Max Power".padEnd(16)} │ ${col(p.maxWatts + "W")} │ ${col(tcxStats.maxWatts != null ? tcxStats.maxWatts + "W" : "N/A")} │ ${l.maxWatts != null ? l.maxWatts + "W" : "N/A"}`
+      `  │ ${"Max Power".padEnd(16)} │ ${col(p.maxWatts + "W")} │ ${col(
+        tcxStats.maxWatts != null ? tcxStats.maxWatts + "W" : "N/A"
+      )} │ ${l.maxWatts != null ? l.maxWatts + "W" : "N/A"}`
     );
     console.log(
-      `  │ ${"Distance".padEnd(16)} │ ${col(fmtDist(p.totalDistMeters))} │ ${col(fmtDist(tcxStats.distMeters))} │ ${fmtDist(l.distMeters)}`
+      `  │ ${"Distance".padEnd(16)} │ ${col(
+        fmtDist(p.totalDistMeters)
+      )} │ ${col(fmtDist(tcxStats.distMeters))} │ ${fmtDist(l.distMeters)}`
     );
     console.log(
-      `  │ ${"Avg Speed".padEnd(16)} │ ${col(fmtSpeed(p.totalDistMeters, p.durationSec))} │ ${col(fmtSpeed(tcxStats.distMeters, tcxStats.durationSec))} │ ${fmtSpeed(l.distMeters, l.durationSec)}`
+      `  │ ${"Avg Speed".padEnd(16)} │ ${col(
+        fmtSpeed(p.totalDistMeters, p.durationSec)
+      )} │ ${col(
+        fmtSpeed(tcxStats.distMeters, tcxStats.durationSec)
+      )} │ ${fmtSpeed(l.distMeters, l.durationSec)}`
     );
     console.log(`  └${"─".repeat(100)}`);
   }
@@ -267,18 +289,34 @@ const allResults = FIXTURES.map((fixture) => {
 // ── Test suites ───────────────────────────────────────────────────────────────
 
 for (const result of allResults) {
-  const { fixture, parsedWorkout, tcxStr, fitBytes, tcxStats, fitStats } = result;
+  const { fixture, parsedWorkout, tcxStr, fitBytes, tcxStats, fitStats } =
+    result;
 
   describe(fixture.label, () => {
     // ── parse3dp validation ────────────────────────────────────────────────
 
     test("parse3dp: produces valid stats", () => {
       const { stats } = parsedWorkout;
-      assert.ok(stats.durationSec > 0, `durationSec should be > 0, got ${stats.durationSec}`);
-      assert.ok(stats.avgWatts > 0, `avgWatts should be > 0, got ${stats.avgWatts}`);
-      assert.ok(stats.maxWatts > 0, `maxWatts should be > 0, got ${stats.maxWatts}`);
-      assert.ok(stats.maxWatts >= stats.avgWatts, `maxWatts (${stats.maxWatts}) should be >= avgWatts (${stats.avgWatts})`);
-      assert.ok(stats.recordCount > 0, `recordCount should be > 0, got ${stats.recordCount}`);
+      assert.ok(
+        stats.durationSec > 0,
+        `durationSec should be > 0, got ${stats.durationSec}`
+      );
+      assert.ok(
+        stats.avgWatts > 0,
+        `avgWatts should be > 0, got ${stats.avgWatts}`
+      );
+      assert.ok(
+        stats.maxWatts > 0,
+        `maxWatts should be > 0, got ${stats.maxWatts}`
+      );
+      assert.ok(
+        stats.maxWatts >= stats.avgWatts,
+        `maxWatts (${stats.maxWatts}) should be >= avgWatts (${stats.avgWatts})`
+      );
+      assert.ok(
+        stats.recordCount > 0,
+        `recordCount should be > 0, got ${stats.recordCount}`
+      );
     });
 
     test("parse3dp: athlete name is non-empty", () => {
@@ -294,14 +332,19 @@ for (const result of allResults) {
       for (let i = 1; i < tps.length; i++) {
         assert.ok(
           tps[i].sec > tps[i - 1].sec,
-          `Trackpoint at index ${i} (sec=${tps[i].sec}) is not after index ${i - 1} (sec=${tps[i - 1].sec})`
+          `Trackpoint at index ${i} (sec=${tps[i].sec}) is not after index ${
+            i - 1
+          } (sec=${tps[i - 1].sec})`
         );
       }
     });
 
     test("parse3dp: no negative wattage in trackpoints", () => {
       for (const tp of parsedWorkout.trackpoints) {
-        assert.ok(tp.watts >= 0, `Found negative watts (${tp.watts}) at sec=${tp.sec}`);
+        assert.ok(
+          tp.watts >= 0,
+          `Found negative watts (${tp.watts}) at sec=${tp.sec}`
+        );
       }
     });
 
@@ -336,16 +379,27 @@ for (const result of allResults) {
       const parsedDist = parsedWorkout.stats.totalDistMeters ?? 0;
       assert.ok(
         Math.abs(tcxDist - parsedDist) < 0.1,
-        `TCX DistanceMeters=${tcxDist} should match parsed totalDistMeters=${parsedDist} (diff=${Math.abs(tcxDist - parsedDist).toFixed(4)}m)`
+        `TCX DistanceMeters=${tcxDist} should match parsed totalDistMeters=${parsedDist} (diff=${Math.abs(
+          tcxDist - parsedDist
+        ).toFixed(4)}m)`
       );
     });
 
     test("TCX: well-formed XML with required elements", () => {
-      assert.ok(tcxStr.includes("<TrainingCenterDatabase"), "Missing root element");
+      assert.ok(
+        tcxStr.includes("<TrainingCenterDatabase"),
+        "Missing root element"
+      );
       assert.ok(tcxStr.includes('Sport="Biking"'), "Missing Sport attribute");
-      assert.ok(tcxStr.includes("<TotalTimeSeconds>"), "Missing TotalTimeSeconds");
+      assert.ok(
+        tcxStr.includes("<TotalTimeSeconds>"),
+        "Missing TotalTimeSeconds"
+      );
       assert.ok(tcxStr.includes("<Trackpoint>"), "Missing Trackpoint elements");
-      assert.ok(tcxStr.includes("<ns3:Watts>"), "Missing ns3:Watts in trackpoints");
+      assert.ok(
+        tcxStr.includes("<ns3:Watts>"),
+        "Missing ns3:Watts in trackpoints"
+      );
     });
 
     // ── FIT validation ─────────────────────────────────────────────────────
@@ -358,11 +412,18 @@ for (const result of allResults) {
         fitBytes[10],
         fitBytes[11]
       );
-      assert.strictEqual(magic, ".FIT", `FIT magic should be '.FIT', got '${magic}'`);
+      assert.strictEqual(
+        magic,
+        ".FIT",
+        `FIT magic should be '.FIT', got '${magic}'`
+      );
     });
 
     test("FIT: contains a lap message", () => {
-      assert.ok(fitStats.lap, "FIT should contain a parsed lap message (global 19)");
+      assert.ok(
+        fitStats.lap,
+        "FIT should contain a parsed lap message (global 19)"
+      );
     });
 
     test("FIT: lap duration matches parsed stats", () => {
@@ -399,7 +460,9 @@ for (const result of allResults) {
       // FIT stores distance as integer centimeters, so rounding error < 0.01m
       assert.ok(
         Math.abs(fitDist - parsedDist) < 0.01,
-        `FIT lap distMeters=${fitDist} should match parsed totalDistMeters=${parsedDist} (diff=${Math.abs(fitDist - parsedDist).toFixed(4)}m)`
+        `FIT lap distMeters=${fitDist} should match parsed totalDistMeters=${parsedDist} (diff=${Math.abs(
+          fitDist - parsedDist
+        ).toFixed(4)}m)`
       );
     });
 
