@@ -250,58 +250,41 @@ function printReport(allResults) {
   const col = (s, w = 26) => String(s ?? "N/A").padEnd(w);
 
   console.log(
-    "\n════════════════════════════════════════════════════════════════"
+    "\n════════════════════════════════════════════════════════════════════════════════════════════"
   );
   console.log("  PerfPro Converter — Conversion Validation Report");
   console.log(
-    "════════════════════════════════════════════════════════════════"
+    "════════════════════════════════════════════════════════════════════════════════════════════"
   );
 
   for (const { fixture, parsedWorkout, tcxStats, fitStats } of allResults) {
     const p = parsedWorkout.stats;
     const l = fitStats.lap ?? {};
+    const exp = EXPECTED[fixture.label];
 
     console.log(`\n  ┌─ ${fixture.label}`);
     console.log(
-      `  │ ${"Metric".padEnd(16)} │ ${"Parsed (.3dp)".padEnd(
-        26
-      )} │ ${"TCX".padEnd(26)} │ FIT (lap)`
+      `  │ ${"Metric".padEnd(16)} │ ${"Expected".padEnd(26)} │ ${"Parsed (.3dp)".padEnd(26)} │ ${"TCX".padEnd(26)} │ FIT (lap)`
     );
     console.log(
-      `  │ ${"-".repeat(16)} │ ${"-".repeat(26)} │ ${"-".repeat(
-        26
-      )} │ ${"-".repeat(26)}`
+      `  │ ${"-".repeat(16)} │ ${"-".repeat(26)} │ ${"-".repeat(26)} │ ${"-".repeat(26)} │ ${"-".repeat(26)}`
     );
     console.log(
-      `  │ ${"Duration".padEnd(16)} │ ${col(
-        fmtDuration(p.durationSec)
-      )} │ ${col(fmtDuration(tcxStats.durationSec))} │ ${fmtDuration(
-        l.durationSec
-      )}`
+      `  │ ${"Duration".padEnd(16)} │ ${col(fmtDuration(exp.durationSec))} │ ${col(fmtDuration(p.durationSec))} │ ${col(fmtDuration(tcxStats.durationSec))} │ ${fmtDuration(l.durationSec)}`
     );
     console.log(
-      `  │ ${"Avg Power".padEnd(16)} │ ${col(p.avgWatts + "W")} │ ${col(
-        tcxStats.avgWatts != null ? tcxStats.avgWatts + "W" : "N/A"
-      )} │ ${l.avgWatts != null ? l.avgWatts + "W" : "N/A"}`
+      `  │ ${"Avg Power".padEnd(16)} │ ${col(exp.avgWatts + "W")} │ ${col(p.avgWatts + "W")} │ ${col(tcxStats.avgWatts != null ? tcxStats.avgWatts + "W" : "N/A")} │ ${l.avgWatts != null ? l.avgWatts + "W" : "N/A"}`
     );
     console.log(
-      `  │ ${"Max Power".padEnd(16)} │ ${col(p.maxWatts + "W")} │ ${col(
-        tcxStats.maxWatts != null ? tcxStats.maxWatts + "W" : "N/A"
-      )} │ ${l.maxWatts != null ? l.maxWatts + "W" : "N/A"}`
+      `  │ ${"Max Power".padEnd(16)} │ ${col(exp.maxWatts + "W")} │ ${col(p.maxWatts + "W")} │ ${col(tcxStats.maxWatts != null ? tcxStats.maxWatts + "W" : "N/A")} │ ${l.maxWatts != null ? l.maxWatts + "W" : "N/A"}`
     );
     console.log(
-      `  │ ${"Distance".padEnd(16)} │ ${col(
-        fmtDist(p.totalDistMeters)
-      )} │ ${col(fmtDist(tcxStats.distMeters))} │ ${fmtDist(l.distMeters)}`
+      `  │ ${"Distance".padEnd(16)} │ ${col(fmtDist(exp.totalDistMeters))} │ ${col(fmtDist(p.totalDistMeters))} │ ${col(fmtDist(tcxStats.distMeters))} │ ${fmtDist(l.distMeters)}`
     );
     console.log(
-      `  │ ${"Avg Speed".padEnd(16)} │ ${col(
-        fmtSpeed(p.totalDistMeters, p.durationSec)
-      )} │ ${col(
-        fmtSpeed(tcxStats.distMeters, tcxStats.durationSec)
-      )} │ ${fmtSpeed(l.distMeters, l.durationSec)}`
+      `  │ ${"Avg Speed".padEnd(16)} │ ${col(fmtSpeed(exp.totalDistMeters, exp.durationSec))} │ ${col(fmtSpeed(p.totalDistMeters, p.durationSec))} │ ${col(fmtSpeed(tcxStats.distMeters, tcxStats.durationSec))} │ ${fmtSpeed(l.distMeters, l.durationSec)}`
     );
-    console.log(`  └${"─".repeat(100)}`);
+    console.log(`  └${"─".repeat(128)}`);
   }
 }
 
