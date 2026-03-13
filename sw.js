@@ -1,6 +1,6 @@
 'use strict';
 
-const CACHE_NAME = 'perfpro-v1';
+const CACHE_NAME = 'perfpro-v2';
 const SHARE_FILE_KEY = 'shared-file';
 
 const PRECACHE_URLS = [
@@ -47,9 +47,15 @@ self.addEventListener('fetch', event => {
     return;
   }
 
-  // Cache-first for all other requests (enables offline use)
+  // Network-first for all other requests: always fetch fresh, fall back to cache if offline
   event.respondWith(
-    caches.match(event.request).then(cached => cached || fetch(event.request))
+    fetch(event.request)
+      .then(response => {
+        const clone = response.clone();
+        caches.open(CACHE_NAME).then(cache => cache.put(event.request, clone));
+        return response;
+      })
+      .catch(() => caches.match(event.request))
   );
 });
 
