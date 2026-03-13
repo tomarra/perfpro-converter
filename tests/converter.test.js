@@ -21,7 +21,7 @@ const __dirname = dirname(__filename);
 // converter.js is a browser IIFE: (function(global) { ... })(window);
 // We supply a plain object as the mock `window` so it works outside a browser.
 const converterSrc = readFileSync(
-  join(__dirname, "..", "converter.js"),
+  join(__dirname, "..", "public", "converter.js"),
   "utf-8"
 );
 const mockWindow = {};

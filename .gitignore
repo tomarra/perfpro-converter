@@ -1,4 +1,7 @@
 # config.js contains API credentials and must never be committed.
-# Copy config.example.js to config.js and fill in your credentials locally.
+# Copy config.example.js to public/config.js and fill in your credentials locally.
 # In CI (GitHub Actions), config.js is generated from GitHub repository secrets.
-config.js
+public/config.js
+
+# macOS system files
+.DS_Store
