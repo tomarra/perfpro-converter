@@ -6,7 +6,7 @@ Convert your **PerfPro / Computrainer `.3dp` workout files** into formats you ca
 
 ## How It Works
 
-1. Open `index.html` in any modern browser
+1. Run `npm start` and open `http://localhost:3000`, or open `public/index.html` directly in any modern browser
 2. Drag & drop your `.3dp` file (or click **Browse File**)
 3. Confirm the detected workout date & time
 4. Click **Convert**
@@ -40,8 +40,8 @@ Your file never leaves your machine.
 
 ## No Setup Required
 
-- No server, no npm, no build step
-- Open `index.html` directly from your filesystem or any static host
+- No build step required
+- Run `npm start` to serve locally, or open `public/index.html` directly from your filesystem or any static host
 - Works in Chrome, Firefox, Safari, and Edge
 
 ---
@@ -68,14 +68,20 @@ Real `.3dp` workout files live in `tests/fixtures/`. To add a new fixture, copy 
 
 ```
 perfpro-converter/
-├── index.html          Page structure and markup
-├── converter.js        .3dp parser, TCX builder, and FIT builder
-├── app.js              UI logic, chart, and file download
-├── styles.css          Dark-theme stylesheet
+├── public/                     Deployed to GitHub Pages
+│   ├── index.html              Page structure and markup
+│   ├── converter.js            .3dp parser, TCX builder, and FIT builder
+│   ├── app.js                  UI logic, chart, and file download
+│   ├── styles.css              Dark-theme stylesheet
+│   ├── sw.js                   Service worker (PWA, offline support)
+│   ├── manifest.json           PWA manifest
+│   ├── icon.svg                App icon (vector)
+│   ├── icon-192.png            App icon (raster, PWA)
+│   └── config.example.js       OAuth credentials template (copy to config.js)
 ├── tests/
-│   ├── converter.test.js   Unit tests (node --test)
-│   └── fixtures/           Sample .3dp files used by the tests
+│   ├── converter.test.js       Unit tests (node --test)
+│   └── fixtures/               Sample .3dp files used by the tests
 └── docs/
-    ├── 3dp-format.md       Reverse-engineered .3dp binary format spec
-    └── development-notes.md  Bugs found, fixes applied, and technical decisions
+    ├── 3dp-format.md           Reverse-engineered .3dp binary format spec
+    └── development-notes.md    Bugs found, fixes applied, and technical decisions
 ```
