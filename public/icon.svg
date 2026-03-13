@@ -12,7 +12,7 @@
   <!-- Baseline -->
   <rect x="52" y="388" width="408" height="3" rx="1.5" fill="#2e3142"/>
 
-  <!-- Power bars: warmup → build → work → work → build → cooldown -->
+  <!-- Power bars: warmup → build → work → work → build → cool down -->
   <rect x="60"  y="325" width="52" height="63"  rx="8" fill="url(#bar)" opacity="0.55"/>
   <rect x="128" y="215" width="52" height="173" rx="8" fill="url(#bar)" opacity="0.78"/>
   <rect x="196" y="120" width="52" height="268" rx="8" fill="url(#bar)"/>
